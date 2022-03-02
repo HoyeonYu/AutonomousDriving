@@ -124,16 +124,55 @@
 	- 프로그램 실행 권한
 		- chmod +x "fileName.py"
 
-2. roslaunch
+2. launch 파일 작성
 	- *.launch 파일 내용에 따라 여러 노드들 한꺼번에 실행 가능
 	- roslaunch "packageName" "실행시킬 launch 파일 이름"
+	- <launch>
+			<node pkg = "packageName" type = "fileName" name = "nodeName" />
+			< ... />
+	   </launch>
 	- 실행시킬 노드 정보 XML 형식으로 기록되어있음
 
+3. 태그
+	- node 태그
+		- 실행할 노드 정보를 입력할 때 사용되는 태그
+		- <node pkg="packageName" type="노드가 포함된 소스파일 명" name:"노드 이름" />
 
-3. node 태그
-
-
-
+	- include 태그
+		- 다른 launch 파일 불러오고 싶을 때 사용하는 태그
+		- <include file = "같이 실행할 *.launch 파일 경로" />
+	
+	- param 태그
+		- ros 파라미터 서버에 변수 등록, 그 변수에 값 설정하기 위한 태그
+		- <param name = "변수 이름", type = "변수 타입", value = "변수 값" />
+		- private parameter는 앞에 ~ 붙임
+	
+## 4. ROS 노드 통신 프로그래밍	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 
 
 
