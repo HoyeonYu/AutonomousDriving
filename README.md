@@ -127,30 +127,115 @@
 2. launch 파일 작성
 	- *.launch 파일 내용에 따라 여러 노드들 한꺼번에 실행 가능
 	- roslaunch "packageName" "실행시킬 launch 파일 이름"
-	- <launch>
+	- ```
+		<launch>
 			<node pkg = "packageName" type = "fileName" name = "nodeName" />
 			< ... />
 	   </launch>
+	   ```
 	- 실행시킬 노드 정보 XML 형식으로 기록되어있음
 
 3. 태그
 	- node 태그
 		- 실행할 노드 정보를 입력할 때 사용되는 태그
-		- <node pkg="packageName" type="노드가 포함된 소스파일 명" name:"노드 이름" />
+		- ```<node pkg="packageName" type="노드가 포함된 소스파일 명" name:"노드 이름" />```
 
 	- include 태그
 		- 다른 launch 파일 불러오고 싶을 때 사용하는 태그
-		- <include file = "같이 실행할 *.launch 파일 경로" />
+		- ```<include file = "같이 실행할 *.launch 파일 경로" />```
 	
 	- param 태그
 		- ros 파라미터 서버에 변수 등록, 그 변수에 값 설정하기 위한 태그
-		- <param name = "변수 이름", type = "변수 타입", value = "변수 값" />
+		- ```<param name = "변수 이름", type = "변수 타입", value = "변수 값" />```
 		- private parameter는 앞에 ~ 붙임
 	
 ## 4. ROS 노드 통신 프로그래밍	
+1. 1:1 통신
+	```
+	# Publisher
+	#! /dir # Shebang, 인터프리터 경로 작성
+	import rospy
+	from std_msgs.msg import String #String 타입의 메시지 주고받을 때
 	
+	rospy.init_node("Node Name")
+	pub = rospy.Publisher("Topic Name", String)
+	rospy.Rate("N") # 1초에 N번씩 publish
 	
+	while not rospy.is_shutdown():
+		pub.publish("Message')
+		rate.sleep()	# 위에서 지정한 rate 남은 만큼 기다림
+	```
 	
+	```
+	# Subscriber
+	
+	def callback(msg):
+		print msg.data
+		
+	sub = rospy.Subscriber("Topic Name", String, callback)
+	
+	rospy.spin()	# 무한 Loop, Topic 도착할 때마다 ROS System 호출 
+	```
+	
+2. 1:N, N:1, N:N 통신
+	- 노드 여러 개 띄우기
+		- 노드 init 함수에서 anonymous = True 설정하면 노드 이름 자동 설정됨
+	```
+	<launch>
+		<node pkg="msg_send" type="pubFileName" name="name1" />
+		<node pkg="msg_send" type="pubFileName" name="name2" />
+		<node pkg="msg_send" type="pubFileName" name="name3" />
+		<node pkg="msg_send" type="subFileName" name="name1" output="screen" />
+		<node pkg="msg_send" type="subFileName" name="name2" output="screen" />
+		<node pkg="msg_send" type="subFileName" name="name3" output="screen" />
+	</launch>
+	```
+3. Custom Message 생성
+	- .msg 파일에 멤버변수 dataType dataName 작성
+	- package.xml 수정
+		```
+		<build_depend>message_generation</build_depend>
+		<exec_depend>message_runtime</exec_depend>
+		```
+	- CMakeLists.txt 수정
+		```
+		find_package ~ message_generation 추가
+		add_message_files ~ FILES 주석 제거
+		generate_messages ~ 주석 제거
+		catkin_package ~ CATKIN_DEPENDS message_runtime 추가
+		```
+		
+## 5. ROS 원격 노드 통신
+1. ROS 노드간 통신
+	- 통신 프로토콜
+		- TCP/IP 
+	- 단일 하드웨어 안의 노드끼리도 네트워크 통신
+
+2. ROS 원격 통신
+	- IP 주소 설정
+	```
+	# bashrc 수정
+	export ROS_MASTER_URI=http://"roscore 구동되는 장치의 IP 주소"
+	export ROS_HOSTNAME="IP주소"	#ifconfig으로 확인
+	```
+	- bashrc 반영
+		- source .bashrc
+	
+3. 네트워크 환경설정 작업순서 및 흐름
+	1. 공유기 포트포워드 설정
+		- 포트 범위 1024 ~ 65000 로 설정
+		- DMZ: 공유기 모든 포트를 사설 IP에 포트포워딩 하는 것
+	3. /etc/hosts 파일 수정
+		- 자신의 사설 IP + Hostname
+		- 상대의 공용 IP + Hostname
+	5. ROS 환경변수 설정
+		- bashrc 수정
+			- ROS_HOSTNAME 환경변수 추가 명령어 주석 처리
+	7. 실행 테스트
+		- Publisher
+			- rostopic pub /chater std_msgs/String "전송 데이터"
+		- Subscriber
+			- rostopic echo /chatter
 	
 	
 	
