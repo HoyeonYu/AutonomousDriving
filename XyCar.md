@@ -41,7 +41,7 @@
 - 조이스틱 제어
 	- 안드로이드 앱으로 차량 수동조작
 
-## 3. 자이카 모터 제어장치
+## 3. 자이카 
 1. 자이카 하드웨어  
 	![image](https://user-images.githubusercontent.com/53277342/156704150-2caf7fce-142c-4785-8b72-769943f6d99f.png)
 
