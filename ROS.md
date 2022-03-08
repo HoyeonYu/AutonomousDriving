@@ -134,12 +134,12 @@
 2. launch 파일 작성
 	- *.launch 파일 내용에 따라 여러 노드들 한꺼번에 실행 가능
 	- roslaunch "packageName" "실행시킬 launch 파일 이름"
-	- ```
+		```xml
 		<launch>
 			<node pkg = "packageName" type = "fileName" name = "nodeName" />
 			< ... />
-	   </launch>
-	   ```
+		</launch>
+		 ```
 	- 실행시킬 노드 정보 XML 형식으로 기록되어있음
 
 3. 태그
@@ -158,7 +158,7 @@
 	
 ## 4. ROS 노드 통신 프로그래밍	
 1. 1:1 통신
-	```
+	```python
 	# Publisher
 	#! /dir # Shebang, 인터프리터 경로 작성
 	import rospy
@@ -166,16 +166,15 @@
 	
 	rospy.init_node("Node Name")
 	pub = rospy.Publisher("Topic Name", String)
-	rospy.Rate("N") # 1초에 N번씩 publish
+	rospy.Rate(N) # 1초에 N번씩 publish
 	
 	while not rospy.is_shutdown():
 		pub.publish("Message')
 		rate.sleep()	# 위에서 지정한 rate 남은 만큼 기다림
 	```
 	
-	```
-	# Subscriber
-	
+	```python
+	# Subscriber	
 	def callback(msg):
 		print msg.data
 		
@@ -187,7 +186,7 @@
 2. 1:N, N:1, N:N 통신
 	- 노드 여러 개 띄우기
 		- 노드 init 함수에서 anonymous = True 설정하면 노드 이름 자동 설정됨
-	```
+	```xml
 	<launch>
 		<node pkg="msg_send" type="pubFileName" name="name1" />
 		<node pkg="msg_send" type="pubFileName" name="name2" />
@@ -200,7 +199,7 @@
 3. Custom Message 생성
 	- .msg 파일에 멤버변수 dataType dataName 작성
 	- package.xml 수정
-		```
+		```xml
 		<build_depend>message_generation</build_depend>
 		<exec_depend>message_runtime</exec_depend>
 		```
@@ -220,7 +219,7 @@
 
 2. ROS 원격 통신
 	- IP 주소 설정
-	```
+	```python
 	# bashrc 수정
 	export ROS_MASTER_URI=http://"roscore 구동되는 장치의 IP 주소"
 	export ROS_HOSTNAME="IP주소"	#ifconfig으로 확인
