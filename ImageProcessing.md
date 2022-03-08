@@ -60,8 +60,8 @@
 	- ROI (Region of Interest)
 		- 이미지 슬라이싱으로 설정
 	
-	- HSV 색 표현
-		<img src="https://user-images.githubusercontent.com/53277342/157157633-a891ec96-3d8c-4981-8443-a12ce024ee80.png" width="50%"/>
+	- HSV 색 표현  
+		<img src="https://user-images.githubusercontent.com/53277342/157157633-a891ec96-3d8c-4981-8443-a12ce024ee80.png" width="40%"/>  
 		- H(Hue): 색상, S(Saturation): 채도(선명도), V(Value): 명도
 
 ## 2. Hough Transform
