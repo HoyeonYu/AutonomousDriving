@@ -61,7 +61,7 @@
 		- 이미지 슬라이싱으로 설정
 	
 	- HSV 색 표현  
-		<img src="https://user-images.githubusercontent.com/53277342/157157633-a891ec96-3d8c-4981-8443-a12ce024ee80.png" width="40%"/>  
+		<img src="https://user-images.githubusercontent.com/53277342/157157633-a891ec96-3d8c-4981-8443-a12ce024ee80.png" width="20%"/>  
 		- H(Hue): 색상, S(Saturation): 채도(선명도), V(Value): 명도
 
 ## 2. Hough Transform
@@ -156,8 +156,16 @@
 ## 3. 이미지 기하학적 변형
 1. Warping
 	- 이미지 복원 목적 영상 이동, 회전, 크기 변환 처리기법
-	- Translation, Rotation, Scaling, Affine, Perspective
-	- 
+	- 강체변환 (Rigid-Body)
+		- 크기, 각도 보존되는 변환
+		- Translation, Rotation
+	- 유사변환 (Similarity)
+		- 크기 변경, 각도 보존
+		- Scaling
+	- 선형변환 (Linear)
+		- Vector 공간에서의 이동
+	- Affine
+		- 선형변환 + 이동변환, 선의 수평성은 유지
 
 
 
