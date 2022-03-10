@@ -111,11 +111,11 @@
 			- 최신 데이터에 산술 방식으로 가중치를 더 주는 방식
 
 ## 4. 조향각 제어
-1. PID 제어기 (Proportional Integral Differential)
+1. PID 제어기 (Proportional Integral Differential)  
 	![image](https://user-images.githubusercontent.com/53277342/157601233-3378f836-9254-4d60-a6db-8c5183e3f55f.png)
-	- 비례, 적분, 미분의 조합으로 적절한 값을 도출하는 기법
-	![image](https://user-images.githubusercontent.com/53277342/157602230-068d2fce-3fa5-427b-943c-2d5b122a3d13.png)
-	- 용어
+	- 비례, 적분, 미분의 조합으로 적절한 값을 도출하는 기법  
+	- 용어  
+		![image](https://user-images.githubusercontent.com/53277342/157602230-068d2fce-3fa5-427b-943c-2d5b122a3d13.png)
 		- Overshoot
 			- 최종 정상 상태 값을 넘어서는 상승 오차
 		- 피크 시간
