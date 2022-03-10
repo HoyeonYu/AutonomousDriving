@@ -158,17 +158,51 @@
 	- 이미지 복원 목적 영상 이동, 회전, 크기 변환 처리기법
 	- 강체변환 (Rigid-Body)
 		- 크기, 각도 보존되는 변환
-		- Translation, Rotation
+		- Translation
+			- 변환 행렬으로 연산
+			```python
+			dst = cv2.warpAffine(src, mat, dsize, dst, flags, borderMode, borderValue)
+			# mat: 2x3 변환 행렬
+			# dsize: 결과 이미지 크기 (width, height)
+			# flags: 보간법 알고리즘
+			# borderMode: 외곽영역 보정
+			# borderValue: 외곽영역 보정 사용 색상 값
+			```
+		- Rotation
+			- 변환 행렬식 연산
+			```python
+			dst = cv2.getRotationMatrix2D(center, angle, scale)
+			# scale: 확대 축소 비율
+			```
 	- 유사변환 (Similarity)
 		- 크기 변경, 각도 보존
 		- Scaling
+			```python
+			dst = cv2.resize(src, dsize, dst, fx, fy, interpolation)
+			# fx, fy: 크기 배율, dsize 생략 시 적용
+			# interpolation: 보간법 알고리즘 선택 플래그, warpAffine과 동일
+			```
 	- 선형변환 (Linear)
 		- Vector 공간에서의 이동
-	- Affine
+	- Affine 변환
 		- 선형변환 + 이동변환, 선의 수평성은 유지
-
-
-
+	- 원근변환 (Perspective)
+		- 원근법 적용한 변환		
+		- 좌상-좌하-우상-우하 순서로 좌표값 지정
+		```python
+		dst = cv2.warpPerspective(stc, mat, dsize)
+		```
+		- 차선 추출에 사용
+			- 원근 현상 없애는 변환 이용
+			1. 도로 이미지를 Bird Eye View 변형 처리
+			2. 차선 찾아 원본 이미지에 합침
+	
+2. 원근 변환과 슬라이딩 윈도우 이용한 차선 검출
+	1. Camera Calibration (카메라 보정)
+		- 이미지 왜곡
+			- 카메라의 다양한 내부적 요인들로 인해 발생
+		- 왜곡된 지점을 왜곡되지 않은 지점으로 매핑해 왜곡 제거
+		- 에러 감지에 용이한 체스판 이미지 사용
 
 
 
