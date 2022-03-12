@@ -190,7 +190,7 @@
 		- 원근법 적용한 변환		
 		- 좌상-좌하-우상-우하 순서로 좌표값 지정
 			```python
-			dst = cv2.warpPerspective(stc, mat, dsize)
+			dst = cv2.warpPerspective(src, mat, dsize)
 			```
 		- 차선 추출에 사용
 			- 원근 현상 없애는 변환 이용
