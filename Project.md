@@ -162,64 +162,59 @@ $ rosbag play ~.bag		& ROS Bag 실행
 		```
 	3. Get Line Position
 		``` python
-		# Get Line Position
-def get_line_pos(img, lines, left=False, right=False):
-    global WIDTH, HEIGHT
-    global cam_debug
-    global line_upper_left, line_upper_right, line_below_right, line_below_left
-    
-    # Get Average of x, y, m(slope)
-    x_sum = 0.0
-    y_sum = 0.0
-    m_sum = 0.0
+		def get_line_pos(img, lines, left=False, right=False):
+			global WIDTH, HEIGHT
+			global cam_debug
+			global line_upper_left, line_upper_right, line_below_right, line_below_left
 
-    size = len(lines)
-    
-    m = 0
-    b = 0
+			# Get Average of x, y, m(slope)
+			x_sum = 0.0
+			y_sum = 0.0
+			m_sum = 0.0
+			m, b = 0, 0
 
-    if size != 0:
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
+			if size != 0:
+				for line in lines:
+					x1, y1, x2, y2 = line[0]
 
-            x_sum += x1 + x2
-            y_sum += y1 + y2
-            m_sum += float(y2 - y1) / float(x2 - x1)
+					x_sum += x1 + x2
+					y_sum += y1 + y2
+					m_sum += float(y2 - y1) / float(x2 - x1)
 
-        x_avg = x_sum / (size * 2)
-        y_avg = y_sum / (size * 2)
+				x_avg = x_sum / (size * 2)
+				y_avg = y_sum / (size * 2)
 
-        m = m_sum / size
-        b = y_avg - m * x_avg
+				m = m_sum / size
+				b = y_avg - m * x_avg
 
-    if m == 0 or b == 0:
-        if left:
-            pos = 0
-        elif right:
-            pos = WIDTH
-    else:
-        y = Gap / 2
+			if m == 0 or b == 0:
+				if left:
+					pos = 0
+				elif right:
+					pos = WIDTH
+			else:
+				y = GAP / 2
+				pos = (y - b) / m
 
-        pos = (y - b) / m
+				if cam_debug:
+					# Get End Point of Line
+					xs = (HEIGHT - b) / float(m)
+					xe = ((HEIGHT / 2) - b) / float(m)
 
-        if cam_debug:
-            # Get End Point of Line
-            xs = (HEIGHT - b) / float(m)
-            xe = ((HEIGHT / 2) - b) / float(m)
-            
-            if left:
-                line_below_left = xs
-                line_upper_left = xe
-                color = (255, 0, 0)
+					if left:
+						line_below_left = xs
+						line_upper_left = xe
+						# Left: Blue
+						color = (255, 0, 0)
 
-            if right:
-                line_below_right = xs
-                line_upper_right = xe
-                color = (0, 0, 255)
+					if right:
+						line_below_right = xs
+						line_upper_right = xe
+						# Righ: Red
+						color = (0, 0, 255)
 
-            cv2.line(img, (int(xs), HEIGHT), (int(xe), (HEIGHT / 2)), color, 3)
-            print("xs: %d, xe: %d" %(xs, xe))
+					cv2.line(img, (int(xs), HEIGHT), (int(xe), (HEIGHT / 2)), color, 3)
 
-    return img, int(pos)
+			return img, int(pos)
 		```
 
