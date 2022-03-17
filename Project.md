@@ -6,6 +6,7 @@
 $ roscore			# ROS Master 실행
 $ rosbag play ~.bag		# ROS Bag 실행
 ```
+<img src="https://user-images.githubusercontent.com/53277342/158725256-828a9b66-df98-4647-9b0f-a31cba627164.png" width="40%"/>
 
 문제점  
 	- compressed 형식으로 저장된 bag 파일이어서 실행되지 않았음  
