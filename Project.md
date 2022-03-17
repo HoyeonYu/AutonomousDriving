@@ -112,8 +112,8 @@ $ rosbag play ~.bag		& ROS Bag 실행
 	```
 
 6. Get Lines  
-	![image](https://user-images.githubusercontent.com/53277342/158741441-ca299aef-8b81-429e-820b-1f6619b7ec02.png)
-	
+	![image](https://user-images.githubusercontent.com/53277342/158760301-2738ff7b-3c75-4cb1-b581-3085e962f293.png)
+
 	1. Find All Lines by Hough Transformation
 		``` python
 		# Get Line by Hough Transformation
@@ -160,6 +160,7 @@ $ rosbag play ~.bag		& ROS Bag 실행
 
 			return left_lines, right_lines
 		```
+		
 	3. Get Line Position
 		``` python
 		def get_line_pos(img, lines, left=False, right=False):
@@ -217,4 +218,41 @@ $ rosbag play ~.bag		& ROS Bag 실행
 
 			return img, int(pos)
 		```
+		- 문제점
+			- 현상
+				- 인식된 차선 변동이 과함
+			- 원인
+				- 차선이 아닌 다른 선 인식하여 과한 변동 일어남
+		- 해결법
+			- (가중)이동평균 필터 이용하여 완화
+	
+	4. Add Weighted Moving Average
+		``` python
+		class MovingAverage:
+			def __init__(self, n):
+				self.samples = n
+				self.data = []
+				self.weights = list(range(1, n + 1))
 
+			def add_sample(self, new_sample):
+				if len(self.data) < self.samples:
+					self.data.append(new_sample)
+				else:
+					self.data = self.data[1:] + [new_sample]
+
+			def get_mm(self):
+				return float(sum(self.data)) / len(self.data)
+
+			def get_wmm(self):
+				s = 0
+				for i, x in enumerate(self.data):
+					s += x * self.weights[i]
+				return float(s) / sum(self.weights[:len(self.data)])
+		```
+		
+		``` python
+		line_below_left_mv = MovingAverage(15)
+		line_upper_left_mv = MovingAverage(15)
+		line_below_right_mv = MovingAverage(15)
+		line_upper_right_mv = MovingAverage(15)
+		```
