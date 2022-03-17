@@ -1,13 +1,12 @@
-# Project
-## Mission 1: Line Detection by using Perspective Transform
+# Project 1: Line Detection with Perspective Transform
 
-### 1. ROS Bag Play
+## 1. Execute ROS Bag File
+![image](https://user-images.githubusercontent.com/53277342/158774855-3dcb51fd-5d94-456f-9106-362e89b9260d.png)  
+
 ```
 $ roscore			& ROS Master 실행
 $ rosbag play ~.bag		& ROS Bag 실행
 ```
-
-![image](https://user-images.githubusercontent.com/53277342/158741246-1390a776-6afd-4be6-955e-9402c530ae57.png)
 
 - 문제점  
 	- 현상
@@ -36,10 +35,10 @@ $ rosbag play ~.bag		& ROS Bag 실행
 				CompressedImage, img_callback, queue_size = 1)
 	```
 
-### 2. Image Processing
-1. Lower Brightness   
-	![image](https://user-images.githubusercontent.com/53277342/158741281-761f636a-3909-464f-8040-c4f516276195.png)
-
+## 2. Image Processing
+### 2-1. Lower Brightness   
+	![image](https://user-images.githubusercontent.com/53277342/158775440-edb82a5d-a917-4906-814c-e57fc5d389a6.png)  
+	
 	``` python
 	def brightness_control(image, brightness):
 		array = np.full(image.shape, (brightness, brightness, brightness), dtype = np.uint8)
@@ -48,8 +47,9 @@ $ rosbag play ~.bag		& ROS Bag 실행
     return dark_img
 	```
 
-2. Set Points for Perspective Transformation  
-	![image](https://user-images.githubusercontent.com/53277342/158741302-2c5db7db-8e12-46eb-a1d7-afbd8908a8e9.png)
+### 2-2. Set Points for Perspective Transformation  
+	![image](https://user-images.githubusercontent.com/53277342/158771307-6ee04f01-24b2-4ac7-a484-2fb60707c808.png)  
+	
 	``` python
 	# Set Points of Source Image 
 	top_y_offset = HEIGHT * 0.5
@@ -78,15 +78,17 @@ $ rosbag play ~.bag		& ROS Bag 실행
 		- 프레임 이미지 저장하여 차선에 해당하는 영역 적절히 선택  
 		- 곡선 주행이어도 극단적으로 꺾이는 경우는 사실상 불가능  
 
-3. Get Translated Image   
-	![image](https://user-images.githubusercontent.com/53277342/158741346-d9e4db9a-d9f5-4bed-b5c7-de472fa27df5.png)  
+### 2-3. Get Translated Image   
+	![image](https://user-images.githubusercontent.com/53277342/158774947-f1b9f592-5d29-48da-991b-ef3b22a00993.png)  
+	
 	``` python
 	pers_mat = cv2.getPerspectiveTransform(src_pt, dst_pt)
 	dst_img = cv2.warpPerspective(frame, pers_mat, (WIDTH, HEIGHT))
 	```
 	
-4. Binarize Image by using HLS Value  
-	![image](https://user-images.githubusercontent.com/53277342/158741384-87e56e30-00ff-4c1f-9eba-7b979b17f558.png)  
+### 2-4. Binarize Image by using HLS Value  
+	![image](https://user-images.githubusercontent.com/53277342/158775115-9ebc1f59-6c84-4f83-921f-cfce85ff80cf.png)  
+	
 	``` python
 	blur_img = cv2.GaussianBlur(img,(5, 5), 0)
     hls = cv2.cvtColor(blur_img, cv2.COLOR_BGR2HLS)
@@ -105,22 +107,23 @@ $ rosbag play ~.bag		& ROS Bag 실행
 		- 영상 Brightness 조절
 		- 밝기 균일한 영상 이용
 	
-5. Get Edge by using Canny Edge Algorithm  
-	![image](https://user-images.githubusercontent.com/53277342/158741418-878a9e1f-4f7c-427f-8ecb-0c2e649a5327.png)
+### 2-5. Get Edge by using Canny Edge Algorithm   
+	![image](https://user-images.githubusercontent.com/53277342/158775143-b4fd2282-f7da-4c87-901b-f274820a4a68.png)  
+	
 	``` python
 	edge_img = cv2.Canny(np.uint8(th), 60, 75)
 	```
 
-6. Get Lines  
-	![image](https://user-images.githubusercontent.com/53277342/158760301-2738ff7b-3c75-4cb1-b581-3085e962f293.png)
-
-	1. Find All Lines by Hough Transformation
+### 2-6. Get Lines    
+	1. Find All Lines by Hough Transformation  
+		![image](https://user-images.githubusercontent.com/53277342/158775212-c3c53158-df2f-4eb9-9360-ec8d7c8f88c9.png)  
+		
 		``` python
 		# Get Line by Hough Transformation
 		all_lines = cv2.HoughLinesP(edge_img, 1, math.pi / 180, 30, 20, 10)
 		```
 	
-	2. Filter Slope and Divide Left and Right Lines
+	2. Filter Slope and Divide Left and Right Lines  
 		``` python
 		def divide_left_right(lines):
 			global WIDTH
@@ -161,7 +164,9 @@ $ rosbag play ~.bag		& ROS Bag 실행
 			return left_lines, right_lines
 		```
 		
-	3. Get Line Position
+	3. Get Line Position  
+		![image](https://user-images.githubusercontent.com/53277342/158775266-7092d6b4-a9ec-494c-884f-04e0bc286d3b.png)  
+		
 		``` python
 		def get_line_pos(img, lines, left=False, right=False):
 			global WIDTH, HEIGHT
@@ -256,3 +261,9 @@ $ rosbag play ~.bag		& ROS Bag 실행
 		line_below_right_mv = MovingAverage(15)
 		line_upper_right_mv = MovingAverage(15)
 		```
+## Result
+![image](https://user-images.githubusercontent.com/53277342/158775352-ed5bfff3-39a6-4c3a-b9c0-199156df2af7.png)  
+
+- Blue Line: Left Line
+- Red Line: Right Line
+- Greed Line: Direction to Move in Driver's View
