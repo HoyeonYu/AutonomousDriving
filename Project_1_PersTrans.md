@@ -53,12 +53,12 @@ return dark_img
 ![image](https://user-images.githubusercontent.com/53277342/158771307-6ee04f01-24b2-4ac7-a484-2fb60707c808.png)  
 1. Set Points of Source Image 
 ``` python
-top_y_offset = HEIGHT * 0.5
+top_y_offset = HEIGHT * 0.7
 below_y_offset = HEIGHT * 0.9
-tl_offset = WIDTH * 0.3
-tr_offset = WIDTH * 0.7
-bl_offset = WIDTH * 0.1
-br_offset = WIDTH * 0.9
+tl_offset = WIDTH * 0.2
+tr_offset = WIDTH - tl_offset
+bl_offset = WIDTH * 0.05
+br_offset = WIDTH - bl_offset
 
 src_tl = [tl_offset, top_y_offset]
 src_tr = [tr_offset, top_y_offset]
