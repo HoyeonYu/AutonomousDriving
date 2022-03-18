@@ -12,32 +12,34 @@ $ rosbag play ~.bag		& ROS Bag 실행
 	- 현상
 		- bag 파일이 실행되지 않음
 	- 원인
-		- compressed 형식으로 저장된 bag 파일이어서 실행되지 않았음  
+		- compressed 형식으로 저장된 bag 파일  
 - 해결법  
+	1. 패키지 부분 Image 대신 CompressedImage 패키지 사용
 	``` python
-	# 패키지 부분
 	# from sensor_msgs.msg import Image
 	# from cv_bridge import CvBridge
-	# -> Image 대신 CompressedImage 패키지 사용
 	from sensor_msgs.msg import CompressedImage
+	```
 
-	# Callback 함수 부분
+	2. Callback 함수 부분 Bridge 대신 imdecode 사용
+	``` python
 	# image = bridge.imgmsg_to_cv2(data, "bgr8")
-	# -> Bridge 대신 imdecode 사용
 	np_arr = np.fromstring(data.data, np.uint8)
 	image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+	```
 
-	# Topic Subscribe 부분
+	3. Topic Subscribe 부분 경로 /compressed, Image 객체 Compressed Image 로 변경
+	``` python
 	# image = rospy.Subscriber("/usb_cam/image_raw/", Image, img_callback)
-	# -> 경로 /compressed 로 변경
-	# -> Image 객체를 Compressed Image 로 변경
 	image = rospy.Subscriber("/usb_cam/image_raw/compressed",
 				CompressedImage, img_callback, queue_size = 1)
 	```
-
+---
 ## 2. Image Processing
 ### 2-1. Lower Brightness   
 ![image](https://user-images.githubusercontent.com/53277342/158775440-edb82a5d-a917-4906-814c-e57fc5d389a6.png)  
+- 사용 이유
+	- 원본 영상으로 HLS 이진화가 잘 이루어지지 않아 밝기 조절 필요
 
 ``` python
 def brightness_control(image, brightness):
@@ -46,12 +48,11 @@ def brightness_control(image, brightness):
 
 return dark_img
 ```
-
+---
 ### 2-2. Set Points for Perspective Transformation  
 ![image](https://user-images.githubusercontent.com/53277342/158771307-6ee04f01-24b2-4ac7-a484-2fb60707c808.png)  
-
+1. Set Points of Source Image 
 ``` python
-# Set Points of Source Image 
 top_y_offset = HEIGHT * 0.5
 below_y_offset = HEIGHT * 0.9
 tl_offset = WIDTH * 0.3
@@ -66,8 +67,9 @@ src_br = [br_offset, below_y_offset]
 
 src_pt = np.float32([src_tl, src_tr, src_bl, src_br])
 ```
+
+2. Set Points of Destination Image
 ``` python
-# Set Points of Destination Image
 dst_pt = np.float32([[0, 0], [WIDTH, 0], [0, HEIGHT], [WIDTH, HEIGHT]])
 ```
 
@@ -77,7 +79,7 @@ dst_pt = np.float32([[0, 0], [WIDTH, 0], [0, HEIGHT], [WIDTH, HEIGHT]])
 - 해결법
 	- 프레임 이미지 저장하여 차선에 해당하는 영역 적절히 선택  
 	- 곡선 주행이어도 극단적으로 꺾이는 경우는 사실상 불가능  
-
+---
 ### 2-3. Get Translated Image   
 ![image](https://user-images.githubusercontent.com/53277342/158774947-f1b9f592-5d29-48da-991b-ef3b22a00993.png)  
 
@@ -85,7 +87,7 @@ dst_pt = np.float32([[0, 0], [WIDTH, 0], [0, HEIGHT], [WIDTH, HEIGHT]])
 pers_mat = cv2.getPerspectiveTransform(src_pt, dst_pt)
 dst_img = cv2.warpPerspective(frame, pers_mat, (WIDTH, HEIGHT))
 ```
-	
+---
 ### 2-4. Binarize Image by using HLS Value  
 ![image](https://user-images.githubusercontent.com/53277342/158775115-9ebc1f59-6c84-4f83-921f-cfce85ff80cf.png)  
 
@@ -106,7 +108,7 @@ cv2.imshow('threshold_img', th)
 	- HLS 도입
 	- 영상 Brightness 조절
 	- 밝기 균일한 영상 이용
-	----
+----
 ### 2-5. Get Edge by using Canny Edge Algorithm   
 ![image](https://user-images.githubusercontent.com/53277342/158775143-b4fd2282-f7da-4c87-901b-f274820a4a68.png)  
 
@@ -232,6 +234,9 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 		- (가중)이동평균 필터 이용하여 완화
 ----
 4. Add Weighted Moving Average
+	- 사용 이유
+		- 차선 인식 안정화
+		
 	``` python
 	class MovingAverage:
 		def __init__(self, n):
@@ -261,6 +266,7 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 	line_below_right_mv = MovingAverage(15)
 	line_upper_right_mv = MovingAverage(15)
 	```
+---
 ## Result
 ![image](https://user-images.githubusercontent.com/53277342/158775352-ed5bfff3-39a6-4c3a-b9c0-199156df2af7.png)  
 
