@@ -267,6 +267,23 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 	line_upper_right_mv = MovingAverage(15)
 	```
 ---
+## 3. Problem and Solving in Other Parts
+1. Socket Address Already in Use
+	- 현상
+		- roscore 명령 실행 시 오류
+	- 원인
+		- 같은 포트 번호에 다른 프로세스 실행 중인 상태
+	- 해결법
+		1. 실행 중인 프로세스 확인
+		```
+		$ netstat -lntp
+		```
+		2. 해당 프로세스의 PID 확인 후 Kill Process
+		```
+		$ kill -9 "PID"
+		```
+		- PID 나오지 않는 경우 sudo로 실행
+---
 ## Result
 ![image](https://user-images.githubusercontent.com/53277342/158775352-ed5bfff3-39a6-4c3a-b9c0-199156df2af7.png)  
 
