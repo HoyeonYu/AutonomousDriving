@@ -1,4 +1,4 @@
-# Project 1: Line Detection with Perspective Transform
+# Project 1: Lane Detection with Perspective Transform
 
 ## 1. Execute ROS Bag File
 ![image](https://user-images.githubusercontent.com/53277342/158774855-3dcb51fd-5d94-456f-9106-362e89b9260d.png)  
@@ -15,31 +15,29 @@ $ rosbag play ~.bag		& ROS Bag 실행
 		- compressed 형식으로 저장된 bag 파일  
 - 해결법  
 	1. 패키지 부분 Image 대신 CompressedImage 패키지 사용
-	``` python
-	# from sensor_msgs.msg import Image
-	# from cv_bridge import CvBridge
-	from sensor_msgs.msg import CompressedImage
-	```
+		``` python
+		# from sensor_msgs.msg import Image
+		# from cv_bridge import CvBridge
+		from sensor_msgs.msg import CompressedImage
+		```
 
 	2. Callback 함수 부분 Bridge 대신 imdecode 사용
-	``` python
-	# image = bridge.imgmsg_to_cv2(data, "bgr8")
-	np_arr = np.fromstring(data.data, np.uint8)
-	image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-	```
+		``` python
+		# image = bridge.imgmsg_to_cv2(data, "bgr8")
+		np_arr = np.fromstring(data.data, np.uint8)
+		image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+		```
 
 	3. Topic Subscribe 부분 경로 /compressed, Image 객체 Compressed Image 로 변경
-	``` python
-	# image = rospy.Subscriber("/usb_cam/image_raw/", Image, img_callback)
-	image = rospy.Subscriber("/usb_cam/image_raw/compressed",
-				CompressedImage, img_callback, queue_size = 1)
-	```
+		``` python
+		# image = rospy.Subscriber("/usb_cam/image_raw/", Image, img_callback)
+		image = rospy.Subscriber("/usb_cam/image_raw/compressed",
+					CompressedImage, img_callback, queue_size = 1)
+		```
 ---
 ## 2. Image Processing
 ### 2-1. Lower Brightness   
 ![image](https://user-images.githubusercontent.com/53277342/158775440-edb82a5d-a917-4906-814c-e57fc5d389a6.png)  
-- 사용 이유
-	- 원본 영상으로 HLS 이진화가 잘 이루어지지 않아 밝기 조절 필요
 
 ``` python
 def brightness_control(image, brightness):
@@ -48,30 +46,33 @@ def brightness_control(image, brightness):
 
 return dark_img
 ```
+
+- 사용 이유
+	- 원본 영상으로 HLS 이진화가 잘 이루어지지 않아 밝기 조절 필요
 ---
 ### 2-2. Set Points for Perspective Transformation  
 ![image](https://user-images.githubusercontent.com/53277342/158771307-6ee04f01-24b2-4ac7-a484-2fb60707c808.png)  
 1. Set Points of Source Image 
-``` python
-top_y_offset = HEIGHT * 0.7
-below_y_offset = HEIGHT * 0.9
-tl_offset = WIDTH * 0.2
-tr_offset = WIDTH - tl_offset
-bl_offset = WIDTH * 0.05
-br_offset = WIDTH - bl_offset
+	``` python
+	top_y_offset = HEIGHT * 0.7
+	below_y_offset = HEIGHT * 0.9
+	tl_offset = WIDTH * 0.2
+	tr_offset = WIDTH - tl_offset
+	bl_offset = WIDTH * 0.05
+	br_offset = WIDTH - bl_offset
 
-src_tl = [tl_offset, top_y_offset]
-src_tr = [tr_offset, top_y_offset]
-src_bl = [bl_offset, below_y_offset]
-src_br = [br_offset, below_y_offset]
+	src_tl = [tl_offset, top_y_offset]
+	src_tr = [tr_offset, top_y_offset]
+	src_bl = [bl_offset, below_y_offset]
+	src_br = [br_offset, below_y_offset]
 
-src_pt = np.float32([src_tl, src_tr, src_bl, src_br])
-```
+	src_pt = np.float32([src_tl, src_tr, src_bl, src_br])
+	```
 
 2. Set Points of Destination Image
-``` python
-dst_pt = np.float32([[0, 0], [WIDTH, 0], [0, HEIGHT], [WIDTH, HEIGHT]])
-```
+	``` python
+	dst_pt = np.float32([[0, 0], [WIDTH, 0], [0, HEIGHT], [WIDTH, HEIGHT]])
+	```
 
 - 문제점  
 	- 화면이 바뀜에 따라 원근 변환을 위한 영역을 어떻게 선택해야할지 고민  
@@ -116,7 +117,7 @@ cv2.imshow('threshold_img', th)
 edge_img = cv2.Canny(np.uint8(th), 60, 75)
 ```
 ----
-### 2-6. Get Lines    
+### 2-6. Get Lines of Detected Lane
 1. Find All Lines by Hough Transformation  
 	![image](https://user-images.githubusercontent.com/53277342/158775212-c3c53158-df2f-4eb9-9360-ec8d7c8f88c9.png)  
 
@@ -126,14 +127,14 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 	```
 ----
 2. Filter Slope and Divide Left and Right Lines  
-	``` python
-	def divide_left_right(lines):
-		global WIDTH
-
+	1. Set Min, Max Slope
+		``` python
 		low_slope_threshold = 0.1
 		high_slope_threshold = 30
-
-		# Calculate Slope and Filtering with Threshold
+		```
+	
+	2. Calculate Slope and Filtering with Threshold
+		``` python
 		slopes = []
 		new_lines = []
 
@@ -148,35 +149,30 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 			if low_slope_threshold < abs(slope) < high_slope_threshold:
 				slopes.append(slope)
 				new_lines.append(line[0])
-
-		# Divide Left and Right Lines by Distance from Center
+		```
+	
+	3. Divide Left and Right Lines by Distance from Center
+		``` python
 		left_lines = []
-		right_lines = []
-		th = WIDTH * 0.03
+			right_lines = []
+			th = WIDTH * 0.03
 
-		for j in range(len(slopes)):
-			line = new_lines[j]
-			x1, y1, x2, y2 = line
+			for j in range(len(slopes)):
+				line = new_lines[j]
+				x1, y1, x2, y2 = line
 
-			if (abs(slope) > 0.1) and (x2 < WIDTH / 2 - th):
-				left_lines.append([line.tolist()])
-			elif (abs(slope) > 0.1) and (x1 > WIDTH / 2 + th):
-				right_lines.append([line.tolist()])
-
-		return left_lines, right_lines
-	```
+				if (abs(slope) > 0.1) and (x2 < WIDTH / 2 - th):
+					left_lines.append([line.tolist()])
+				elif (abs(slope) > 0.1) and (x1 > WIDTH / 2 + th):
+					right_lines.append([line.tolist()])
+		```
 ----
 3. Get Line Position  
 	![image](https://user-images.githubusercontent.com/53277342/158775266-7092d6b4-a9ec-494c-884f-04e0bc286d3b.png)  
 
+	1. Get Average of x, y, m(slope)
 	``` python
-	def get_line_pos(img, lines, left=False, right=False):
-		global WIDTH, HEIGHT
-		global cam_debug
-		global line_upper_left, line_upper_right, line_below_right, line_below_left
-
-		# Get Average of x, y, m(slope)
-		x_sum = 0.0
+	x_sum = 0.0
 		y_sum = 0.0
 		m_sum = 0.0
 		m, b = 0, 0
@@ -194,8 +190,11 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 
 			m = m_sum / size
 			b = y_avg - m * x_avg
-
-		if m == 0 or b == 0:
+	```
+	
+	2. Get Line of Detected Lane
+	``` python
+	if m == 0 or b == 0:
 			if left:
 				pos = 0
 			elif right:
@@ -222,9 +221,8 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 					color = (0, 0, 255)
 
 				cv2.line(img, (int(xs), HEIGHT), (int(xe), (HEIGHT / 2)), color, 3)
-
-		return img, int(pos)
 	```
+	
 	- 문제점
 		- 현상
 			- 인식된 차선 변동이 과함
@@ -233,39 +231,41 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 	- 해결법
 		- (가중)이동평균 필터 이용하여 완화
 ----
-4. Add Weighted Moving Average
+4. Add Weighted Moving Average		
+	1. Moving Average Class
+		``` python
+		class MovingAverage:
+			def __init__(self, n):
+				self.samples = n
+				self.data = []
+				self.weights = list(range(1, n + 1))
+
+			def add_sample(self, new_sample):
+				if len(self.data) < self.samples:
+					self.data.append(new_sample)
+				else:
+					self.data = self.data[1:] + [new_sample]
+
+			def get_mm(self):
+				return float(sum(self.data)) / len(self.data)
+
+			def get_wmm(self):
+				s = 0
+				for i, x in enumerate(self.data):
+					s += x * self.weights[i]
+				return float(s) / sum(self.weights[:len(self.data)])
+		```
+		
+	2. Declare Moving Average Object 
+		``` python
+		line_below_left_mv = MovingAverage(15)
+		line_upper_left_mv = MovingAverage(15)
+		line_below_right_mv = MovingAverage(15)
+		line_upper_right_mv = MovingAverage(15)
+		```
+	
 	- 사용 이유
 		- 차선 인식 안정화
-		
-	``` python
-	class MovingAverage:
-		def __init__(self, n):
-			self.samples = n
-			self.data = []
-			self.weights = list(range(1, n + 1))
-
-		def add_sample(self, new_sample):
-			if len(self.data) < self.samples:
-				self.data.append(new_sample)
-			else:
-				self.data = self.data[1:] + [new_sample]
-
-		def get_mm(self):
-			return float(sum(self.data)) / len(self.data)
-
-		def get_wmm(self):
-			s = 0
-			for i, x in enumerate(self.data):
-				s += x * self.weights[i]
-			return float(s) / sum(self.weights[:len(self.data)])
-	```
-
-	``` python
-	line_below_left_mv = MovingAverage(15)
-	line_upper_left_mv = MovingAverage(15)
-	line_below_right_mv = MovingAverage(15)
-	line_upper_right_mv = MovingAverage(15)
-	```
 ---
 ## 3. Problem and Solving in Other Parts
 1. Socket Address Already in Use
