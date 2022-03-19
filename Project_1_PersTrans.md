@@ -77,6 +77,7 @@ return dark_img
 - 문제점  
 	- 화면이 바뀜에 따라 원근 변환을 위한 영역을 어떻게 선택해야할지 고민  
 	- 곡선 주행 시 지정 영역 벗어남 문제  
+
 - 해결법
 	- 프레임 이미지 저장하여 차선에 해당하는 영역 적절히 선택  
 	- 곡선 주행이어도 극단적으로 꺾이는 경우는 사실상 불가능  
@@ -98,13 +99,14 @@ hls = cv2.cvtColor(blur_img, cv2.COLOR_BGR2HLS)
 h, l, s = cv2.split(hls)
 
 _, th = cv2.threshold(l, 100, 255, cv2.THRESH_BINARY)
-cv2.imshow('threshold_img', th)
 ```  
+
 - 문제점
 	- 현상
 		- 차선 인식 이진화가 잘 이루어지지 않음
 	- 원인
-		- 영상 밝기 변화
+		- 영상 내부 밝기 변동
+		
 - 해결법
 	- HLS 도입
 	- 영상 Brightness 조절
@@ -133,7 +135,7 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 		high_slope_threshold = 30
 		```
 	
-	2. Calculate Slope and Filtering with Threshold
+	2. Calculate Slope and Filter with Threshold
 		``` python
 		slopes = []
 		new_lines = []
@@ -141,30 +143,30 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 		for line in lines:
 			x1, y1, x2, y2 = line[0]
 
-			if x2 - x1 == 0:
+			if (x2 - x1) == 0:
 				slope = 0
 			else:
-				slope = float(y2-y1) / float(x2-x1)
+				slope = float(y2 - y1) / float(x2 - x1)
 
 			if low_slope_threshold < abs(slope) < high_slope_threshold:
 				slopes.append(slope)
 				new_lines.append(line[0])
 		```
 	
-	3. Divide Left and Right Lines by Distance from Center
+	3. Divide Left and Right Lines by Distance from Center X
 		``` python
 		left_lines = []
-			right_lines = []
-			th = WIDTH * 0.03
+		right_lines = []
+		th = WIDTH * 0.03
 
-			for j in range(len(slopes)):
-				line = new_lines[j]
-				x1, y1, x2, y2 = line
+		for j in range(len(slopes)):
+			line = new_lines[j]
+			x1, y1, x2, y2 = line
 
-				if (abs(slope) > 0.1) and (x2 < WIDTH / 2 - th):
-					left_lines.append([line.tolist()])
-				elif (abs(slope) > 0.1) and (x1 > WIDTH / 2 + th):
-					right_lines.append([line.tolist()])
+			if x2 < ((WIDTH / 2) - th):
+				left_lines.append([line.tolist()])
+			elif x1 > ((WIDTH / 2) + th):
+				right_lines.append([line.tolist()])
 		```
 ----
 3. Get Line Position  
@@ -173,54 +175,50 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 	1. Get Average of x, y, m(slope)
 	``` python
 	x_sum = 0.0
-		y_sum = 0.0
-		m_sum = 0.0
-		m, b = 0, 0
+	y_sum = 0.0
+	m_sum = 0.0
+	m, b = 0, 0
 
-		if size != 0:
-			for line in lines:
-				x1, y1, x2, y2 = line[0]
+	if size != 0:
+		for line in lines:
+			x1, y1, x2, y2 = line[0]
 
-				x_sum += x1 + x2
-				y_sum += y1 + y2
-				m_sum += float(y2 - y1) / float(x2 - x1)
+			x_sum += x1 + x2
+			y_sum += y1 + y2
+			m_sum += float(y2 - y1) / float(x2 - x1)
 
-			x_avg = x_sum / (size * 2)
-			y_avg = y_sum / (size * 2)
+		x_avg = x_sum / (size * 2)
+		y_avg = y_sum / (size * 2)
 
-			m = m_sum / size
-			b = y_avg - m * x_avg
+		m = m_sum / size
+		b = y_avg - m * x_avg
 	```
 	
 	2. Get Line of Detected Lane
 	``` python
 	if m == 0 or b == 0:
+		if left:
+			pos = 0
+		elif right:
+			pos = WIDTH
+	else:
+		y = GAP / 2
+		pos = (y - b) / m
+
+		if cam_debug:
+			# Get End Point of Line
+			xs = (HEIGHT - b) / float(m)
+			xe = ((HEIGHT / 2) - b) / float(m)
+
 			if left:
-				pos = 0
-			elif right:
-				pos = WIDTH
-		else:
-			y = GAP / 2
-			pos = (y - b) / m
+				# Left: Blue
+				color = (255, 0, 0)
 
-			if cam_debug:
-				# Get End Point of Line
-				xs = (HEIGHT - b) / float(m)
-				xe = ((HEIGHT / 2) - b) / float(m)
+			if right:
+				# Right: Red
+				color = (0, 0, 255)
 
-				if left:
-					line_below_left = xs
-					line_upper_left = xe
-					# Left: Blue
-					color = (255, 0, 0)
-
-				if right:
-					line_below_right = xs
-					line_upper_right = xe
-					# Righ: Red
-					color = (0, 0, 255)
-
-				cv2.line(img, (int(xs), HEIGHT), (int(xe), (HEIGHT / 2)), color, 3)
+			cv2.line(img, (int(xs), HEIGHT), (int(xe), (HEIGHT / 2)), color, 3)
 	```
 	
 	- 문제점
