@@ -173,9 +173,7 @@
 			- 각 오브젝트에 고유 ID 부여해 추적, 예상되는 주행 경로 예측
 		- Local Path Planning
 			- 다음 이동할 곳으로 경로 찾기
-		- Behavior Selecetor
-			- 행위 결정
-				- 운전 의사 결정, 방법, 성향 고려
+		- Behavior Selector
+			- 행위 결정: 운전 의사 결정, 방법, 성향 고려
 		- Vehicle Control
-			- 주행 제어
-				- 원하는 대로 차량 움직이게 함
+			- 주행 제어: 원하는 대로 차량 움직이게 함
