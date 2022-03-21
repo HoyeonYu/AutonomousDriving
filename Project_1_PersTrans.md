@@ -287,7 +287,7 @@ edge_img = cv2.Canny(np.uint8(th), 60, 75)
 	- 해결법
 		1. 실행 중인 프로세스 확인
 		```
-		$ netstat -lntp
+		$ netstat -lntp | grep "Port Num"
 		```
 		2. 해당 프로세스의 PID 확인 후 Kill Process
 		```
