@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from pickle import FALSE
 import numpy as np
 import cv2, math
 import rospy, rospkg, time
@@ -70,6 +71,9 @@ GREEN_COLOR = (0, 255, 0)
 BLUE_COLOR = (255, 0, 0)
 YELLOW_COLOR = (0, 255, 255)
 
+prev_left_inds = np.int(0)
+prev_right_inds = np.int(0)
+
 calibrated = True
 
 if calibrated:
@@ -96,7 +100,7 @@ def warp_image(img, src, dst, size):
     # Set Points of Source Image 
     top_y_offset = HEIGHT * 0.65
     below_y_offset = HEIGHT * 0.8
-    tl_offset = WIDTH * 0.27
+    tl_offset = WIDTH * 0.28
     tr_offset = WIDTH - tl_offset
     bl_offset = WIDTH * 0
     br_offset = WIDTH - bl_offset
@@ -146,7 +150,7 @@ def warp_process_image(img):
     _, lane = cv2.threshold(L, lane_bin_th, 255, cv2.THRESH_BINARY)
     cv2.imshow('threshed lane', lane)
 
-    histogram = np.sum(lane[lane.shape[0]//4 * 3:,:], axis=0)    
+    histogram = np.sum(lane[int((lane.shape[0]/2)):,:], axis=0)    
     # print('histogram', histogram) 
     # Change? : midPoint of Width: shape[1] / 2 
     # midpoint = np.int(histogram.shape[1]/2)
@@ -163,57 +167,104 @@ def warp_process_image(img):
     
     lx, ly, rx, ry = [], [], [], []
 
+    OUT_IMG_BORDER = 150
     out_img = np.dstack((lane, lane, lane))*255
+    out_img = cv2.copyMakeBorder(out_img, 0, 0, OUT_IMG_BORDER, OUT_IMG_BORDER, cv2.BORDER_CONSTANT, cv2.BORDER_CONSTANT)
 
-    prev_left_inds = np.int(0)
-    prev_right_inds = np.int(0)
+    prev_left_x = leftx_current
+    prev_left_diff = -3
+    left_found_flag = True
+    prev_right_x = rightx_current
+    prev_right_diff = 3
+    right_found_flag = True
+
+    min_x = leftx_current
+    max_x = rightx_current
+
+    WARP_WEIGHT = 3
+    LANE_GAP = WIDTH * 0.8
+
+    FOUND_COLOR = (0, 255, 0)
+    PREDICT_COLOR = (0, 255, 255)
 
     for window in range(nwindows):
-        win_yl = int(lane.shape[0] - (window+1)*window_height)
-        win_yh = int(lane.shape[0] - window*window_height)
+        win_yl = lane.shape[0] - (window+1)*window_height
+        win_yh = lane.shape[0] - window*window_height
+        win_yl_part = win_yl + 0.2*window_height
 
-        win_xll = int(leftx_current - margin)
-        win_xlh = int(leftx_current + margin)
-        win_xrl = int(rightx_current - margin)
-        win_xrh = int(rightx_current + margin)
+        win_xll = leftx_current - margin
+        win_xlh = leftx_current + margin
+        win_xrl = rightx_current - margin
+        win_xrh = rightx_current + margin
 
-        cv2.rectangle(out_img,(win_xll,win_yl),(win_xlh,win_yh),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xrl,win_yl),(win_xrh,win_yh),(0,255,0), 2) 
-        # print('win_xll', win_xll, 'win_yl', win_yl, 'win_xlh', win_xlh,
-        #         'win_yh', win_yh)
+        # print("WINDOW NUM", window, "left flag", left_found_flag, "right flag", right_found_flag)
 
-        good_left_inds = np.array(((nz[0] >= win_yl)&(nz[0] < win_yh)&(nz[1] >= win_xll)&(nz[1] < win_xlh)).nonzero())
-        print(good_left_inds)
-        good_right_inds = np.array(((nz[0] >= win_yl)&(nz[0] < win_yh)&(nz[1] >= win_xrl)&(nz[1] < win_xrh)).nonzero())
-        print(good_right_inds)
+        good_left_inds = ((nz[0] >= win_yl)&(nz[0] < win_yh)&(nz[1] >= win_xll)&(nz[1] < win_xlh)).nonzero()[0]
+        good_left_inds_upper_part = ((nz[0] >= win_yl)&(nz[0] < win_yl_part)&(nz[1] >= win_xll)&(nz[1] < win_xlh)).nonzero()[0]
+        find_left_y_idx = 0
 
-        good_left_x = prev_left_inds
-        good_right_x = prev_right_inds
+        # print('nz[0][good_left_inds[find_left_y_idx:]]', (nz[0][good_left_inds[find_left_y_idx:]]))
+        # print('len(nz[0][good_left_inds[find_left_y_idx:]])', len(nz[0][good_left_inds[find_left_y_idx:]]))
+        good_right_inds = ((nz[0] >= win_yl)&(nz[0] < win_yh)&(nz[1] >= win_xrl)&(nz[1] < win_xrh)).nonzero()[0]
+        good_right_inds_upper_part = ((nz[0] >= win_yl)&(nz[0] < win_yl_part)&(nz[1] >= win_xrl)&(nz[1] < win_xrh)).nonzero()[0]
 
-        if good_left_inds.size > 0:
-            good_left_x = np.int(np.mean(nz[1][good_left_inds]))
+        left_lane_inds.append(good_left_inds)
+        right_lane_inds.append(good_right_inds)
 
-        if good_right_inds.size > 0:
-            good_right_x = np.int(np.mean(nz[1][good_right_inds]))
+        if len(good_left_inds_upper_part) > minpix:
+            leftx_current = np.int(np.mean(nz[1][good_left_inds_upper_part]))
+            prev_left_diff = (leftx_current - prev_left_x)
+            left_found_flag = True
+            # print('leftx_current', leftx_current, 'diff', prev_left_diff)
+        
+        else:
+            # prev_left_diff *= WARP_WEIGHT
+            # leftx_current = rightx_current - LANE_GAP
+            leftx_current = prev_left_x + prev_right_diff
+            left_found_flag = False
+            # print("WINDOW NUM", window, "NOT FOUND LEFT, leftx_curresnt", leftx_current)
 
-        print('good_left_x', good_left_x)
-        print('good_right_x', good_right_x)
+        prev_left_x = leftx_current
 
-        left_lane_inds.append(good_left_x)
-        right_lane_inds.append(good_right_x)
-        # print('good_left_inds', len(good_left_inds))
-        # print('right_lane_inds', len(right_lane_inds))
-        # print('good_left_inds', (good_left_inds))
+        if len(good_right_inds_upper_part) > minpix:        
+            rightx_current = np.int(np.mean(nz[1][good_right_inds_upper_part]))
+            prev_right_diff = (rightx_current - prev_right_x)
+            right_found_flag = True
+            # print('rightx_current', rightx_current, 'diff', prev_right_diff)
+        
+        else:
+            # prev_right_diff *= WARP_WEIGHT
+            # rightx_current = leftx_current + LANE_GAP
+            rightx_current = prev_right_x + prev_left_diff
+            right_found_flag = False
+            # print("WINDOW NUM", window, "NOT FOUND RIGHT, rightx_current", rightx_current)
 
-        lx.append(good_left_x)
+        prev_right_x = rightx_current
+        
+        if not left_found_flag:
+            win_xll = leftx_current - margin
+            win_xlh = leftx_current + margin
+
+        if not right_found_flag:
+            win_xrl = rightx_current - margin
+            win_xrh = rightx_current + margin
+        
+        left_window_color = FOUND_COLOR if left_found_flag else PREDICT_COLOR
+        right_window_color = FOUND_COLOR if right_found_flag else PREDICT_COLOR
+
+        cv2.rectangle(out_img,(int(OUT_IMG_BORDER+win_xll),int(win_yl)),(int(OUT_IMG_BORDER+win_xlh),int(win_yh)),left_window_color, 2) 
+        cv2.rectangle(out_img,(int(OUT_IMG_BORDER+win_xrl),int(win_yl)),(int(OUT_IMG_BORDER+win_xrh),int(win_yh)),right_window_color, 2) 
+        
+        # print("WINDOW NUM", window, "right flag", right_found_flag, "rightx_current", rightx_current)
+
+        lx.append(leftx_current)
         ly.append((win_yl + win_yh)/2)
 
-        rx.append(good_right_x)
+        rx.append(rightx_current)
         ry.append((win_yl + win_yh)/2)
 
     left_lane_inds = np.concatenate(left_lane_inds)
     right_lane_inds = np.concatenate(right_lane_inds)
-
 
     #left_fit = np.polyfit(nz[0][left_lane_inds], nz[1][left_lane_inds], 2)
     #right_fit = np.polyfit(nz[0][right_lane_inds] , nz[1][right_lane_inds], 2)
@@ -222,10 +273,13 @@ def warp_process_image(img):
     rfit = np.polyfit(np.array(ry),np.array(rx),2)
 
     lane = cv2.cvtColor(lane, cv2.COLOR_GRAY2BGR)
+    lane = cv2.copyMakeBorder(lane, 0, 0, OUT_IMG_BORDER, OUT_IMG_BORDER, cv2.BORDER_CONSTANT, cv2.BORDER_CONSTANT)
     out_img = cv2.bitwise_or(out_img, lane)
-    out_img[nz[0][left_lane_inds], nz[1][left_lane_inds]] = [255, 0, 0]
-    out_img[nz[0][right_lane_inds] , nz[1][right_lane_inds]] = [0, 0, 255]
+    out_img[nz[0][left_lane_inds], OUT_IMG_BORDER+nz[1][left_lane_inds]] = [255, 0, 0]
+    out_img[nz[0][right_lane_inds], OUT_IMG_BORDER+nz[1][right_lane_inds]] = [0, 0, 255]
     cv2.imshow("viewer", out_img)
+
+    # print('min_x', min_x, 'max_x', max_x)
     
     #return left_fit, right_fit
     return lfit, rfit
