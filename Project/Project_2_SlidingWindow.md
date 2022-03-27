@@ -1,1 +1,1 @@
-# Project 2: Find Lane with Sliding Window
+# Project 2: Lane Detection with Sliding Window
