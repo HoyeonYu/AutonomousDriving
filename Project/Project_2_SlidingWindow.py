@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from pickle import FALSE
 import numpy as np
 import cv2, math
 import rospy, rospkg, time
@@ -47,19 +46,49 @@ CYAN_COLOR = (255, 255, 0)
 IMG_BORDER = 150
 N_WINDOWS = 15
 MARGIN = 60
-MIN_PIX = 5
 
 MAX_ANGLE = 3
 CAR_PIXEL = 73
 METER_PER_PIXEL = 0.055
 
-CENTER_X1_IDX, CENTER_X2_IDX = 1, 2
-center_x_list = []
+prev_hist_left_x, prev_hist_right_x = 0, 0
+CENTER_X1_IDX, CENTER_X2_IDX = 2, 3
+x_left_list = np.full(N_WINDOWS, 0)
+x_right_list = np.full(N_WINDOWS, WIDTH)
 
 imu_callback_time = None
 
 velX, velY, veclocity, prev_vel = 0, 0, 0, 0
-total_dist, prev_dist, cur_dist = 0, 0, 0
+
+
+class MovingAverage:
+    def __init__(self, n):
+        self.samples = n
+        self.data = []
+        self.weights = list(range(1, n + 1))
+
+    def add_sample(self, new_sample):
+        if len(self.data) < self.samples:
+            self.data.append(new_sample)
+        else:
+            self.data = self.data[1:] + [new_sample]
+
+    def get_mm(self):
+        return float(sum(self.data)) / len(self.data)
+
+    def get_wmm(self):
+        s = 0
+        for i, x in enumerate(self.data):
+            s += x * self.weights[i]
+        return float(s) / sum(self.weights[:len(self.data)])
+
+
+MV_AVG_SIZE = 20
+current_left_x_mv = MovingAverage(MV_AVG_SIZE)
+current_right_x_mv = MovingAverage(MV_AVG_SIZE)
+# current_left_x_mv.add_sample(WIDTH * 0.1)
+# current_right_x_mv.add_sample(WIDTH * 0.9)
+
 
 # camera image topic callback
 def img_callback(data):
@@ -68,7 +97,7 @@ def img_callback(data):
 
 
 def imu_callback(data):
-    global imu_callback_time, velX, velY, veclocity, prev_vel, total_dist
+    global imu_callback_time, velX, velY, veclocity, prev_vel
 
     if imu_callback_time is None:
         dt = 0
@@ -81,17 +110,12 @@ def imu_callback(data):
     velY += (data.linear_acceleration.y * dt)
 
     veclocity = math.sqrt(math.pow(velX, 2) + math.pow(velY, 2))
+
     if veclocity == prev_vel:
         velX, velY = 0, 0
         veclocity = 0
-    total_dist += veclocity * dt
-    prev_vel = veclocity
-    
-    # print('velocity', veclocity)
-    # print('total_dist', total_dist)
-    # print('dt', dt)
-    # print('data', data)
 
+    prev_vel = veclocity
     imu_callback_time = time.time()
 
 
@@ -172,12 +196,23 @@ def draw_straight_line(x1, x2, y1, y2, sliding_img):
 
 
 def sliding_window(img):
-    global CENTER_X1_IDX, CENTER_X2_IDX, center_x_list
+    global CENTER_X1_IDX, CENTER_X2_IDX, x_left_list, x_right_list
+    global current_left_x_mv, current_right_x_mv
 
-    histogram = np.sum(img[int((img.shape[0] / 5 * 3)):, :], axis=0)
-    midpoint = np.int(histogram.shape[0] / 2)
-    left_x_current = np.argmax(histogram[:midpoint])
-    right_x_current = np.argmax(histogram[midpoint:]) + midpoint
+    histogram = np.sum(img[int((HEIGHT / 5 * 3)):, :], axis=0)
+    midpoint = int(WIDTH / 2)
+
+    center_target_x = (x_left_list[CENTER_X1_IDX] + x_right_list[CENTER_X1_IDX]) // 2
+    # print('center_target_x', center_target_x)
+    # HIST_MARGIN = 10
+    # center_target_x = int(min(center_target_x, (WIDTH / 2) - 1 - HIST_MARGIN))
+    # center_target_x = int(max(center_target_x, HIST_MARGIN))
+
+    current_left_x_mv.add_sample(np.argmax(histogram[:midpoint]))
+    current_right_x_mv.add_sample(np.argmax(histogram[midpoint:]) + midpoint)
+
+    current_left_x = current_left_x_mv.get_wmm()
+    current_right_x = current_right_x_mv.get_wmm()
 
     window_height = np.int(HEIGHT / N_WINDOWS)
     nz = img.nonzero()
@@ -192,30 +227,29 @@ def sliding_window(img):
     sliding_img = cv2.copyMakeBorder(sliding_img, 0, 0, IMG_BORDER, IMG_BORDER, cv2.BORDER_CONSTANT,
                                      cv2.BORDER_CONSTANT)
 
-    prev_left_x = left_x_current
+    prev_left_x = current_left_x
     prev_left_diff = 0
-    left_found_flag = True
+    left_found_flag = []
 
-    prev_right_x = right_x_current
+    prev_right_x = current_right_x
     prev_right_diff = 0
-    right_found_flag = True
+    right_found_flag = []
 
     total_left_found_flag = False
     total_right_found_flag = False
 
-    center_x1, center_x2 = 0, 0
-    center_y1, center_y2 = 0, 0
-    center_x_list = []
+    x_left_list, x_right_list = [], []
+    MIN_PIX = window_height * MARGIN * 0.2 * 0.3
 
-    for window in range(N_WINDOWS):
-        win_yl = HEIGHT - (window + 1) * window_height
+    for window_idx in range(N_WINDOWS):
+        win_yl = HEIGHT - (window_idx + 1) * window_height
         win_yl_part = win_yl + 0.2 * window_height
-        win_yh = HEIGHT - window * window_height
+        win_yh = HEIGHT - window_idx * window_height
 
-        win_xll = left_x_current - MARGIN
-        win_xlh = left_x_current + MARGIN
-        win_xrl = right_x_current - MARGIN
-        win_xrh = right_x_current + MARGIN
+        win_xll = current_left_x - MARGIN
+        win_xlh = current_left_x + MARGIN
+        win_xrl = current_right_x - MARGIN
+        win_xrh = current_right_x + MARGIN
 
         left_color_inds = ((nz[0] >= win_yl) & (nz[0] < win_yh) & (nz[1] >= win_xll) & (nz[1] < win_xlh)).nonzero()[0]
         right_color_inds = ((nz[0] >= win_yl) & (nz[0] < win_yh) & (nz[1] >= win_xrl) & (nz[1] < win_xrh)).nonzero()[0]
@@ -228,69 +262,108 @@ def sliding_window(img):
         ((nz[0] >= win_yl) & (nz[0] < win_yl_part) & (nz[1] >= win_xrl) & (nz[1] < win_xrh)).nonzero()[0]
 
         if len(left_found_upper_part) > MIN_PIX:
-            left_x_current = np.int(np.mean(nz[1][left_found_upper_part]))
-            prev_left_diff = left_x_current - prev_left_x
-            left_found_flag = True
-
-        else:
-            left_x_current = prev_left_x + prev_right_diff
-            left_found_flag = False
-
-        if len(right_found_upper_part) > MIN_PIX:
-            right_x_current = np.int(np.mean(nz[1][right_found_upper_part]))
-            prev_right_diff = right_x_current - prev_right_x
-            right_found_flag = True
-
-        else:
-            right_x_current = prev_right_x + prev_left_diff
-            right_found_flag = False
-
-        lx.append(left_x_current)
-        ly.append((win_yl + win_yh) / 2)
-
-        rx.append(right_x_current)
-        ry.append((win_yl + win_yh) / 2)
-
-        prev_center_x = (prev_left_x + prev_right_x) / 2
-        center_x_list.append(prev_center_x)
-        current_center_x = (left_x_current + right_x_current) / 2
-
-        if window == CENTER_X1_IDX:
-            center_x1 = prev_center_x
-            center_y1 = win_yh
-
-        elif window == CENTER_X2_IDX:
-            center_x2 = prev_center_x
-            center_y2 = win_yh
-
-        cv2.line(sliding_img, (int(IMG_BORDER + prev_center_x), int(win_yh)),
-                 (int(IMG_BORDER + current_center_x), int(win_yl)), MAGENTA_COLOR, 2)
-
-        prev_left_x = left_x_current
-        prev_right_x = right_x_current
-
-        if not left_found_flag:
-            win_xll = left_x_current - MARGIN
-            win_xlh = left_x_current + MARGIN
-        else:
+            current_left_x = np.int(np.mean(nz[1][left_found_upper_part]))
+            prev_left_diff = current_left_x - prev_left_x
+            left_found_flag.append(True)
             total_left_found_flag = True
 
-        if not right_found_flag:
-            win_xrl = right_x_current - MARGIN
-            win_xrh = right_x_current + MARGIN
         else:
+            current_left_x = prev_left_x + prev_right_diff
+            if window_idx == 0:
+                current_left_x = current_right_x - WIDTH * 0.7
+            left_found_flag.append(False)
+
+        if len(right_found_upper_part) > MIN_PIX:
+            current_right_x = np.int(np.mean(nz[1][right_found_upper_part]))
+            prev_right_diff = current_right_x - prev_right_x
+            right_found_flag.append(True)
             total_right_found_flag = True
 
-        left_window_color = found_color if left_found_flag else predict_color
-        right_window_color = found_color if right_found_flag else predict_color
+        else:
+            current_right_x = prev_right_x + prev_left_diff
+            if window_idx == 0:
+                current_right_x = current_left_x + WIDTH * 0.7
+            right_found_flag.append(False)
+
+        if window_idx == 0:
+            current_left_x_mv.add_sample(current_left_x) 
+            current_right_x_mv.add_sample(current_right_x) 
+
+        lx.append(current_left_x)
+        ly.append((win_yl + win_yh) / 2)
+
+        rx.append(current_right_x)
+        ry.append((win_yl + win_yh) / 2)
+
+        x_left_list.append(prev_left_x)
+        x_right_list.append(prev_right_x)
+
+        prev_left_x = current_left_x
+        prev_right_x = current_right_x
+
+    left_color_lane_inds = np.concatenate(left_color_lane_inds)
+    right_color_lane_inds = np.concatenate(right_color_lane_inds)
+
+    if not total_left_found_flag:
+        dx = x_right_list[N_WINDOWS - 1] - x_right_list[0]
+
+        if dx > 0:
+            x_left_list = []
+            print('right to left')
+            for idx in range(N_WINDOWS):
+                x_left_list.append(x_right_list[idx])
+                x_right_list[idx] = x_left_list[idx] + (WIDTH * 0.8)
+
+    if not total_right_found_flag:
+        dx = x_left_list[N_WINDOWS - 1] - x_left_list[0]
+        
+        if dx < 0:
+            x_right_list = []
+            # print(340)
+            for idx in range(N_WINDOWS):
+                x_right_list.append(x_left_list[idx])
+                x_left_list[idx] = x_right_list[idx] - (WIDTH * 0.8)
+                # print(344, x_right_list[idx])
+
+    # print('x_left_list', x_left_list)
+    # print('x_right_list', x_right_list)
+    # print('total_left_found_flag', total_left_found_flag)
+    # print('total_right_found_flag', total_right_found_flag)
+
+    # print('x_left_list', x_left_list)
+    # print('x_right_list', x_right_list)
+
+    for window_idx in range(N_WINDOWS):
+        win_xll = x_left_list[window_idx] - MARGIN
+        win_xlh = x_left_list[window_idx] + MARGIN
+        win_xrl = x_right_list[window_idx] - MARGIN
+        win_xrh = x_right_list[window_idx] + MARGIN
+
+        win_yl = HEIGHT - (window_idx + 1) * window_height
+        win_yh = HEIGHT - window_idx * window_height
+
+        # if not left_found_flag[window_idx]:
+        #     win_xll = x_left_list[window_idx] - MARGIN
+        #     win_xlh = x_left_list[window_idx] + MARGIN
+
+        # if not right_found_flag[window_idx]:
+        #     win_xrl = x_right_list[window_idx] - MARGIN
+        #     win_xrh = x_right_list[window_idx] + MARGIN
+
+        left_window_color = found_color if left_found_flag[window_idx] else predict_color
+        right_window_color = found_color if right_found_flag[window_idx] else predict_color
 
         cv2.rectangle(sliding_img, (int(IMG_BORDER + win_xll), int(win_yl)), (int(IMG_BORDER + win_xlh), int(win_yh)),
                       left_window_color, 2)
         cv2.rectangle(sliding_img, (int(IMG_BORDER + win_xrl), int(win_yl)), (int(IMG_BORDER + win_xrh), int(win_yh)),
                       right_window_color, 2)
 
-    left_color_lane_inds = np.concatenate(left_color_lane_inds)
-    right_color_lane_inds = np.concatenate(right_color_lane_inds)
+        if window_idx > 0:
+            prev_center_x = (x_left_list[window_idx - 1] + x_right_list[window_idx - 1]) / 2
+            current_center_x = (x_left_list[window_idx] + x_right_list[window_idx]) / 2
+
+            cv2.line(sliding_img, (int(IMG_BORDER + prev_center_x), int(win_yh)),
+                    (int(IMG_BORDER + current_center_x), int(win_yl)), MAGENTA_COLOR, 2)
 
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
     img = cv2.copyMakeBorder(img, 0, 0, IMG_BORDER, IMG_BORDER, cv2.BORDER_CONSTANT, cv2.BORDER_CONSTANT)
@@ -338,8 +411,6 @@ def draw_lane(image, warp_img, warp_inverse_mat, left_fit, right_fit):
 
     return cv2.addWeighted(image, 1, new_warp, 0.3, 0)
 
-
-# def angle_control(dist, )
 
 # #########################################################
 # #################    Previous Code    ###################
@@ -507,29 +578,32 @@ def drive(Angle, Speed):
 
 
 def get_drive_angle(dist, img):
-    global METER_PER_PIXEL, CENTER_X1_IDX, center_x_list
+    global METER_PER_PIXEL, CENTER_X1_IDX, x_left_list, x_right_list
 
     translate_dist = dist * (1 / METER_PER_PIXEL)
     window_height = HEIGHT / N_WINDOWS
 
     target_y = HEIGHT - (CENTER_X1_IDX * window_height)
     target_y -= translate_dist
-    cv2.line(img, (0, int(target_y)), (int(IMG_BORDER * 2 + WIDTH), int(target_y)), YELLOW_COLOR, 2)
+    cv2.line(img, (0, int(target_y)), (int(IMG_BORDER * 2 + WIDTH), int(target_y)), GRAY_COLOR, 2)
 
-    y_below_idx = int((float(480 - target_y) / 480) * N_WINDOWS)
+    y_below_idx = int((float(HEIGHT - target_y) / HEIGHT) * N_WINDOWS)
 
     if y_below_idx < 0:
         y_below_idx = 0
-    elif y_below_idx >= N_WINDOWS:
-        y_below_idx = N_WINDOWS - 1
+    elif y_below_idx >= N_WINDOWS - 1:
+        y_below_idx = N_WINDOWS - 2
         
-    print('y_below_idx', y_below_idx)
-    print('center_x_list[y_below_idx]', center_x_list[y_below_idx])
+    # print('y_below_idx', y_below_idx)
+    # print('center_x_list[y_below_idx]', center_x_list[y_below_idx])
+    
+    center_x_below = (x_left_list[y_below_idx] + x_right_list[y_below_idx]) / 2
+    center_x_upper = (x_left_list[y_below_idx + 1] + x_right_list[y_below_idx + 1]) / 2
 
-    img, drive_angle = draw_straight_line(center_x_list[y_below_idx], center_x_list[y_below_idx +1],
+    img, drive_angle = draw_straight_line(center_x_below, center_x_upper,
                 HEIGHT - (y_below_idx * window_height), HEIGHT - ((y_below_idx + 1) * window_height), img)
 
-    cv2.putText(img, 'drive_angle: ' + str(drive_angle)[:5], (int(IMG_BORDER*2 + WIDTH * 0.7), 
+    cv2.putText(img, 'angle: ' + str(drive_angle)[:5], (int(IMG_BORDER*2 + WIDTH * 0.7), 
                 int(HEIGHT * 0.1)), 1, 1, GRAY_COLOR, 1)
     cv2.imshow('new_sliding_window', img)
 
@@ -538,9 +612,7 @@ def get_drive_angle(dist, img):
 
 def start():
     global Width, Height
-    global image
-    global motor
-    global total_dist, prev_dist, cur_dist
+    global image, motor
 
     rospy.init_node('h_drive')
 
@@ -572,24 +644,12 @@ def start():
         # cv2.imshow('prev_lane_img', prev_lane_img)
         cv2.waitKey(1)
 
-        #cur_dist = total_dist - prev_dist
-        #prev_dist += cur_dist
-
         ds = veclocity * (time.time()-prev_time)
         drive_angle = get_drive_angle(ds, sliding_img)
 
-        # print('total_dist', total_dist)
-        # print('prev_dist', prev_dist)
-        # print('cur_dist', cur_dist)
-
         drive(drive_angle, 5)
 
-
-
-        
         prev_time = time.time()
-
-        # print('motor_msg:', motor_msg)
 
 
 if __name__ == '__main__':
