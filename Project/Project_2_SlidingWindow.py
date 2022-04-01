@@ -184,28 +184,8 @@ def binarize_image(src_img):
     return bin_lane_img
 
 
-def draw_straight_line(x1, x2, y1, y2, sliding_img):
-    under = x1 - x2
-    if under == 0:
-        under = 0.001
-
-    grad = float(y1 - y2) / under
-
-    x_below = float(HEIGHT - y2) / grad + x2
-    x_upper = float(0 - y2) / grad + x2
-
-    angle = math.degrees(math.atan(grad))
-    angle = np.sign(angle) * -90 + angle
-
-    control_grad = float(y1 - y2 + CAR_PIXEL) / under
-    control_angle = math.degrees(math.atan(control_grad))
-    control_angle = np.sign(control_angle) * -90 + control_angle
-
-    cv2.line(sliding_img, (int(IMG_BORDER + x_below), HEIGHT), (int(IMG_BORDER + x_upper), 0), CYAN_COLOR, 2)
-
-    return sliding_img, control_angle
-
 print_cnt = 0
+
 
 def check_same_lane():
     global x_left_list, x_right_list, prev_x_left_list, prev_x_right_list
@@ -393,9 +373,8 @@ def sliding_window(img):
     if not first_drive_flag:
        check_same_lane()
 
-
-    print('total_left_found_flag', total_left_found_flag, 'prev_left_found_flag', prev_left_found_flag)
-    print('total_right_found_flag', total_right_found_flag, 'prev_right_found_flag', prev_right_found_flag)
+    # print('total_left_found_flag', total_left_found_flag, 'prev_left_found_flag', prev_left_found_flag)
+    # print('total_right_found_flag', total_right_found_flag, 'prev_right_found_flag', prev_right_found_flag)
 
     first_drive_flag = False
     current_left_x_mv.add_sample(x_left_list[0])
@@ -440,6 +419,99 @@ def draw_lane(image, warp_img, warp_inverse_mat, left_fit, right_fit):
     new_lane_img = cv2.addWeighted(image, 1, new_warp, 0.3, 0)
 
     # cv2.imshow('new_lane_img', new_lane_img)
+
+
+def drive(Angle, Speed): 
+    global motor
+
+    motor_msg = xycar_motor()
+    motor_msg.angle = Angle
+    motor_msg.speed = Speed
+
+    motor.publish(motor_msg)
+
+
+def get_drive_angle(dist):
+    global x_left_list, x_right_list
+
+    move_y_dist = dist * METER_PER_PIXEL
+    target_y = CENTER_X1_IDX * WINDOW_HEIGHT
+    target_y -= move_y_dist
+    y_idx = int((float(target_y) / HEIGHT) * N_WINDOWS)
+
+    print('y_idx', y_idx)
+
+    if y_idx < 0:
+        y_idx = 0
+    elif y_idx >= N_WINDOWS - 1:
+        y_idx = N_WINDOWS - 2
+
+    diff_x = ((x_left_list[y_idx] + x_right_list[y_idx]) / 2) - (WIDTH / 2)
+    print('diff_x', diff_x)
+
+    if diff_x == 0:
+        diff_x = 0.001
+        
+    control_grad = diff_x / float(target_y + CAR_PIXEL)
+    control_angle = math.degrees(math.atan(control_grad))
+    print('control_angle', control_angle)
+
+    # MID_OFFSET = 50
+
+    # if x_left_list[0] > (WIDTH / 2 - MID_OFFSET):
+    #     # print('LEFT OVER')
+    #     drive_angle += 15
+    
+    # if x_right_list[0] < (WIDTH / 2 + MID_OFFSET):
+    #     # print('RIGHT OVER')
+    #     drive_angle -= 15
+
+    return control_angle, target_y
+
+
+def draw_img(drive_angle, target_y, sliding_img, bin_lane_img):
+    global left_found_flag, right_found_flag, left_color_lane_inds, right_color_lane_inds, nz
+
+    for window_idx in range(N_WINDOWS):
+        win_xll = x_left_list[window_idx] - MARGIN
+        win_xlh = x_left_list[window_idx] + MARGIN
+        win_xrl = x_right_list[window_idx] - MARGIN
+        win_xrh = x_right_list[window_idx] + MARGIN
+
+        win_yl = HEIGHT - (window_idx + 1) * WINDOW_HEIGHT
+        win_yh = HEIGHT - window_idx * WINDOW_HEIGHT
+
+        found_color = GREEN_COLOR
+        predict_color = YELLOW_COLOR
+
+        left_window_color = found_color if left_found_flag[window_idx] else predict_color
+        right_window_color = found_color if right_found_flag[window_idx] else predict_color
+
+        cv2.rectangle(sliding_img, (int(IMG_BORDER + win_xll), int(win_yl)), 
+                        (int(IMG_BORDER + win_xlh), int(win_yh)), left_window_color, 2)
+        cv2.rectangle(sliding_img, (int(IMG_BORDER + win_xrl), int(win_yl)), 
+                        (int(IMG_BORDER + win_xrh), int(win_yh)), right_window_color, 2)
+
+        if window_idx > 0:
+            prev_center_x = (x_left_list[window_idx - 1] + x_right_list[window_idx - 1]) / 2
+            current_center_x = (x_left_list[window_idx] + x_right_list[window_idx]) / 2
+
+            cv2.line(sliding_img, (int(IMG_BORDER + prev_center_x), int(win_yh+WINDOW_HEIGHT)),
+                    (int(IMG_BORDER + current_center_x), int(win_yl+WINDOW_HEIGHT)), MAGENTA_COLOR, 2)
+
+    lane_img = cv2.cvtColor(bin_lane_img, cv2.COLOR_GRAY2BGR)
+    lane_img = cv2.copyMakeBorder(lane_img, 0, 0, IMG_BORDER, IMG_BORDER, cv2.BORDER_CONSTANT, cv2.BORDER_CONSTANT)
+
+    sliding_img = cv2.bitwise_or(sliding_img, lane_img)
+
+    # sliding_img[nz[0][left_color_lane_inds], IMG_BORDER + nz[1][left_color_lane_inds]] = BLUE_COLOR
+    # sliding_img[nz[0][right_color_lane_inds], IMG_BORDER + nz[1][right_color_lane_inds]] = RED_COLOR
+
+    cv2.line(sliding_img, (0, int(HEIGHT - target_y)), (int(IMG_BORDER * 2 + WIDTH), int(HEIGHT - target_y)), GRAY_COLOR, 2)
+
+    cv2.putText(sliding_img, 'angle: ' + str(drive_angle)[:5], (int(IMG_BORDER*2 + WIDTH * 0.7), 
+                int(HEIGHT * 0.1)), 1, 1, GRAY_COLOR, 1)
+    cv2.imshow('new_sliding_window', sliding_img)
     cv2.waitKey(1)
 
 
@@ -555,8 +627,6 @@ def prev_code_warp_process_image(src_img):
     left_lane_inds = np.concatenate(left_lane_inds)
     right_lane_inds = np.concatenate(right_lane_inds)
 
-    out_img, angle = draw_straight_line(center_x1, center_x2, center_y1, center_y2, out_img)
-
     #left_fit = np.polyfit(nz[0][left_lane_inds], nz[1][left_lane_inds], 2)
     #right_fit = np.polyfit(nz[0][right_lane_inds] , nz[1][right_lane_inds], 2)
     
@@ -571,12 +641,9 @@ def prev_code_warp_process_image(src_img):
     out_img[nz[0][left_lane_inds], IMG_BORDER + nz[1][left_lane_inds]] = BLUE_COLOR
     out_img[nz[0][right_lane_inds], IMG_BORDER + nz[1][right_lane_inds]] = RED_COLOR
 
-    cv2.putText(out_img, 'angle: ' + str(angle)[:5], (int(IMG_BORDER*2 + WIDTH * 0.8), 
-                int(HEIGHT * 0.1)), 1, 1, GRAY_COLOR, 1)
-
     cv2.imshow("prev_sliding_img", out_img)
     
-    return lfit, rfit, angle, out_img, bin_lane_img
+    return lfit, rfit, out_img, bin_lane_img
 
 def prev_code_draw_lane(image, warp_img, Minv, left_fit, right_fit):
     global Width, Height
@@ -602,96 +669,6 @@ def prev_code_draw_lane(image, warp_img, Minv, left_fit, right_fit):
 ##################################################################################################################
 ##################################################################################################################
 
-# publish xycar_motor msg
-def drive(Angle, Speed): 
-    global motor
-
-    motor_msg = xycar_motor()
-    motor_msg.angle = Angle
-    motor_msg.speed = Speed
-
-    motor.publish(motor_msg)
-
-
-def get_drive_angle(dist, sliding_img):
-    global METER_PER_PIXEL, CENTER_X1_IDX, WINDOW_HEIGHT, x_left_list, x_right_list
-
-    translate_dist = dist * (1 / METER_PER_PIXEL)
-
-    target_y = HEIGHT - (CENTER_X1_IDX * WINDOW_HEIGHT)
-    target_y -= translate_dist
-
-    y_below_idx = int((float(HEIGHT - target_y) / HEIGHT) * N_WINDOWS)
-
-    if y_below_idx < 0:
-        y_below_idx = 0
-    elif y_below_idx >= N_WINDOWS - 1:
-        y_below_idx = N_WINDOWS - 2
-        
-    center_x_below = (x_left_list[y_below_idx] + x_right_list[y_below_idx]) / 2
-    center_x_upper = (x_left_list[y_below_idx + 1] + x_right_list[y_below_idx + 1]) / 2
-
-    speed_img, drive_angle = draw_straight_line(center_x_below, center_x_upper,
-                HEIGHT - (y_below_idx * WINDOW_HEIGHT), HEIGHT - ((y_below_idx + 1) * WINDOW_HEIGHT), sliding_img)
-
-    MID_OFFSET = 50
-
-    if x_left_list[0] > (WIDTH / 2 - MID_OFFSET):
-        # print('LEFT OVER')
-        drive_angle += 15
-    
-    if x_right_list[0] < (WIDTH / 2 + MID_OFFSET):
-        # print('RIGHT OVER')
-        drive_angle -= 15
-
-    return drive_angle, target_y, speed_img
-
-
-def draw_img(drive_angle, target_y, sliding_img, bin_lane_img):
-    global left_found_flag, right_found_flag, left_color_lane_inds, right_color_lane_inds, nz
-
-    for window_idx in range(N_WINDOWS):
-        win_xll = x_left_list[window_idx] - MARGIN
-        win_xlh = x_left_list[window_idx] + MARGIN
-        win_xrl = x_right_list[window_idx] - MARGIN
-        win_xrh = x_right_list[window_idx] + MARGIN
-
-        win_yl = HEIGHT - (window_idx + 1) * WINDOW_HEIGHT
-        win_yh = HEIGHT - window_idx * WINDOW_HEIGHT
-
-        found_color = GREEN_COLOR
-        predict_color = YELLOW_COLOR
-
-        left_window_color = found_color if left_found_flag[window_idx] else predict_color
-        right_window_color = found_color if right_found_flag[window_idx] else predict_color
-
-        cv2.rectangle(sliding_img, (int(IMG_BORDER + win_xll), int(win_yl)), 
-                        (int(IMG_BORDER + win_xlh), int(win_yh)), left_window_color, 2)
-        cv2.rectangle(sliding_img, (int(IMG_BORDER + win_xrl), int(win_yl)), 
-                        (int(IMG_BORDER + win_xrh), int(win_yh)), right_window_color, 2)
-
-        if window_idx > 0:
-            prev_center_x = (x_left_list[window_idx - 1] + x_right_list[window_idx - 1]) / 2
-            current_center_x = (x_left_list[window_idx] + x_right_list[window_idx]) / 2
-
-            cv2.line(sliding_img, (int(IMG_BORDER + prev_center_x), int(win_yh+WINDOW_HEIGHT)),
-                    (int(IMG_BORDER + current_center_x), int(win_yl+WINDOW_HEIGHT)), MAGENTA_COLOR, 2)
-
-    lane_img = cv2.cvtColor(bin_lane_img, cv2.COLOR_GRAY2BGR)
-    lane_img = cv2.copyMakeBorder(lane_img, 0, 0, IMG_BORDER, IMG_BORDER, cv2.BORDER_CONSTANT, cv2.BORDER_CONSTANT)
-
-    sliding_img = cv2.bitwise_or(sliding_img, lane_img)
-
-    # sliding_img[nz[0][left_color_lane_inds], IMG_BORDER + nz[1][left_color_lane_inds]] = BLUE_COLOR
-    # sliding_img[nz[0][right_color_lane_inds], IMG_BORDER + nz[1][right_color_lane_inds]] = RED_COLOR
-
-    cv2.line(sliding_img, (0, int(target_y)), (int(IMG_BORDER * 2 + WIDTH), int(target_y)), GRAY_COLOR, 2)
-
-    cv2.putText(sliding_img, 'angle: ' + str(drive_angle)[:5], (int(IMG_BORDER*2 + WIDTH * 0.7), 
-                int(HEIGHT * 0.1)), 1, 1, GRAY_COLOR, 1)
-    cv2.imshow('new_sliding_window', sliding_img)
-
-
 def start():
     global Width, Height
     global image, motor
@@ -713,19 +690,17 @@ def start():
         left_fit, right_fit, bin_lane_img, sliding_img = warp_process_image(warp_img)
         draw_lane(image, warp_img, warp_inverse_mat, left_fit, right_fit)
 
-        ds = veclocity * (time.time()-prev_time)
-        drive_angle, target_y, sliding_img = get_drive_angle(ds, sliding_img)
+        move_dist = veclocity * (time.time() - prev_time)
+        drive_angle, target_y = get_drive_angle(move_dist)
         draw_img(drive_angle, target_y, sliding_img, bin_lane_img)
-
         # #########################################################
         # #################    Previous Code    ###################
         # #########################################################
 
-        # prev_code_left_fit, prev_code_right_fit, prev_code_drive_angle, prev_code_sliding_img, prev_code_bin_lane_img = prev_code_warp_process_image(warp_img)
-        # # prev_code_lane_img = prev_code_draw_lane(image, warp_img, warp_inverse_mat, prev_code_left_fit, prev_code_right_fit)
-        # # cv2.imshow('prev_code_lane_img', prev_code_lane_img)
-        # prev_code_drive_angle, prev_code_target_y, prev_code_sliding_img = get_drive_angle(ds, prev_code_sliding_img)
-        # # draw_img(prev_code_drive_angle, prev_code_target_y, prev_code_sliding_img, prev_code_bin_lane_img)
+        prev_code_left_fit, prev_code_right_fit, prev_code_sliding_img, prev_code_bin_lane_img = prev_code_warp_process_image(warp_img)
+        prev_code_lane_img = prev_code_draw_lane(image, warp_img, warp_inverse_mat, prev_code_left_fit, prev_code_right_fit)
+        prev_code_drive_angle, prev_code_target_y = get_drive_angle(move_dist)
+        draw_img(prev_code_drive_angle, prev_code_target_y, prev_code_sliding_img, prev_code_bin_lane_img)
 
         # #########################################################
 
