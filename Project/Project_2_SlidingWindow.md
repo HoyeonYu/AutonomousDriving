@@ -2,8 +2,20 @@
 > <b>Advanced Lane Detection by using Sliding Window</b>  
 > [**View Code**](https://github.com/HoyeonYu/ROS_Study/blob/master/Project/Project_2_SlidingWindow.py)
 
+## Contents
+[**1. Problem of Previous Sliding Window Algorithm**](#1-problem-of-previous-sliding-window-algorithm)  
+<b> 2. Advanced Sliding Window </b>  
+    ㄴ [**1. Execute Unity Driving Simulator**](#1-execute-unity-driving-simulator)  
+    ㄴ [**2. Warp Image by Perspective Transform**](#2-warp-image-by-perspective-transform)  
+    ㄴ [**3. Binarize Image by HLS Value**](#3-binarize-image-by-hls-value)  
+    ㄴ [**4. Find Lane with Sliding Window**](#4-find-lane-with-sliding-window)  
+    ㄴ [**5. Get Velocity for Distance by using IMU Sensor**](#5-get-velocity-for-distance-by-using-imu-sensor)  
+    ㄴ [**6. Calculate Angle for Steering**](#6-calculate-angle-for-steering)  
+    ㄴ [**7. Fill Front Lane**](#7-fill-front-lane)  
+[**3. Result**](#3-result)  
+
 ---
-## Problem of Previous Sliding Window Algorithm
+## 1. Problem of Previous Sliding Window Algorithm
 1. Detect Lanes Only in Image
 	- Lane Actually Exist, but Not Visible in Camera Image
 	![image](https://user-images.githubusercontent.com/53277342/161479818-fcc8e2e9-d9e7-440d-966e-127ee58152c4.png)
@@ -15,15 +27,15 @@
 	![image](https://user-images.githubusercontent.com/53277342/161481230-f5a47e8a-ab28-4d86-8db5-9d90ec4f50c6.png)
 ---
 
-## Advanced Sliding Window
-## 1. Execute Unity Driving Simulator
+## 2. Advanced Sliding Window
+### 1. Execute Unity Driving Simulator
 ```
 $ roslaunch rosbridge_server rosbridge_websocket.launch
 $ ./xycar3dsimulator.x86_64
 ```
 
 ---
-## 2. Warp Image by Perspective Transform
+### 2. Warp Image by Perspective Transform
 1. Target Area  
 	![image](https://user-images.githubusercontent.com/53277342/161211979-2a60acac-2193-43a6-9269-0cb0acd76d5f.png)  
 
@@ -60,7 +72,7 @@ def warp_image(img):
 ```
 
 ---
-## 3. Binarize Image by HLS Value
+### 3. Binarize Image by HLS Value
 1. Previous Binarization  
 ![image](https://user-images.githubusercontent.com/53277342/161212773-84680820-044e-4aff-b348-ddb277b3fcf9.png)  
 
@@ -77,7 +89,7 @@ def warp_image(img):
 	```
 
 ---
-## 4. Find Lane with Sliding Window
+### 4. Find Lane with Sliding Window
 ![image](https://user-images.githubusercontent.com/53277342/161215195-a1725871-68e9-496d-8a34-d5c7468d8fef.png)
 
 1. Find Start Point by using Histogram
@@ -234,7 +246,7 @@ def warp_image(img):
 		```
 ---
 
-## 5. Get Velocity for Distance by using IMU Sensor
+### 5. Get Velocity for Distance by using IMU Sensor
 ```python
 # IMU Topic Callback for Checking Velocity of Car
 def imu_callback(data):
@@ -270,7 +282,7 @@ move_dist = cur_vel * (time.time() - prev_time)
 
 ---
 
-## 6. Calculate Angle for Steering
+### 6. Calculate Angle for Steering
 1. Get Unity Distance-CV Pixel Ratio
 	```python
 	METER_PER_PIXEL = 0.055
@@ -306,7 +318,7 @@ move_dist = cur_vel * (time.time() - prev_time)
 
 ---
 
-## 7. Fill Front Lane  
+### 7. Fill Front Lane  
 ![image](https://user-images.githubusercontent.com/53277342/161466394-cbd2ac0e-5416-49f7-8d0a-cea623b218f9.png)
 
 1. Polyfit Left, Right Points
@@ -383,7 +395,7 @@ border_warp_inverse_mat = cv2.getPerspectiveTransform(border_dst_pt, border_src_
 	
 ---
 
-## 6. Result
+## 3. Result
 1. Case: Normal Lane  
 	![image](https://user-images.githubusercontent.com/53277342/161477759-0299615d-af46-4982-866c-fe4f1890a860.png)
 	![image](https://user-images.githubusercontent.com/53277342/161477784-d1e6d7dd-7874-4c37-88f5-2f1b781c8706.png)
