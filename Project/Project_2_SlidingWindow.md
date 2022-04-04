@@ -3,7 +3,19 @@
 > [**View Code**](https://github.com/HoyeonYu/ROS_Study/blob/master/Project/Project_2_SlidingWindow.py)
 
 ---
+## Problem of Previous Sliding Window Algorithm
+1. Detect Lanes Only in Image
+	- Lane Actually Exist, but Not Visible in Camera Image
+	![image](https://user-images.githubusercontent.com/53277342/161479818-fcc8e2e9-d9e7-440d-966e-127ee58152c4.png)
+	![image](https://user-images.githubusercontent.com/53277342/161479768-66f378e6-3230-459e-af3e-6d5ed568d56e.png)
+	![image](https://user-images.githubusercontent.com/53277342/161479784-3e88017a-8330-466d-ab76-95ae4b0c453a.png)
+2. Not Follow Previous Window
+	![image](https://user-images.githubusercontent.com/53277342/161481210-0ce89be1-8fa9-4749-be5e-87241fc40ace.png)
+3. Distorted Lane Fill
+	![image](https://user-images.githubusercontent.com/53277342/161481230-f5a47e8a-ab28-4d86-8db5-9d90ec4f50c6.png)
+---
 
+## Advanced Sliding Window
 ## 1. Execute Unity Driving Simulator
 ```
 $ roslaunch rosbridge_server rosbridge_websocket.launch
@@ -104,6 +116,7 @@ def warp_image(img):
 	```
 	1. Window Finding Cases
 		1. If: (Window Found),  
+			![image](https://user-images.githubusercontent.com/53277342/161481599-de03c851-a33f-465e-b224-90a72d95ea87.png)
 			- Save Current X Position and Calculate Difference Between Previous Data   
 
 			```python
@@ -126,6 +139,7 @@ def warp_image(img):
 
 		2. Else, If: (Window Not Found but Another Side Window Found),  
 			- Estimate X Position from Another Side X Position by using Fixed Lane Width  
+			![image](https://user-images.githubusercontent.com/53277342/161481814-a850ff18-b87e-45f4-8879-33860d5914c3.png)
 			```python
 			# Left Window Not Found
 			else:
@@ -135,7 +149,7 @@ def warp_image(img):
 					cur_left_x = cur_right_x - LANE_WIDTH
 				left_found_flag.append(False)
 			```
-
+			![image](https://user-images.githubusercontent.com/53277342/161481663-847aedef-ddbf-4b1d-8ab5-760c8a70c0e3.png)  
 			```python
 			# Right Window Not Found
 			else:
@@ -370,46 +384,46 @@ border_warp_inverse_mat = cv2.getPerspectiveTransform(border_dst_pt, border_src_
 ---
 
 ## 6. Result
-1. Case: Normal Lane
+1. Case: Normal Lane  
 	![image](https://user-images.githubusercontent.com/53277342/161477759-0299615d-af46-4982-866c-fe4f1890a860.png)
 	![image](https://user-images.githubusercontent.com/53277342/161477784-d1e6d7dd-7874-4c37-88f5-2f1b781c8706.png)
-	- Previous
+	- Previous  
 	![image](https://user-images.githubusercontent.com/53277342/161477672-9c8b34ad-7e67-430d-9d35-45096b2b9fbc.png)
-	- Advanced
+	- Advanced  
 	![image](https://user-images.githubusercontent.com/53277342/161477726-f433733c-25ef-4d29-b07f-c84388fe558b.png)
-	- Filled Lane
+	- Filled Lane  
 	![image](https://user-images.githubusercontent.com/53277342/161477805-e44e34a6-2b0a-4176-9893-3e5fec137498.png)
 
 ---
 2. Case: Lane Missing  
 	![image](https://user-images.githubusercontent.com/53277342/161478004-96430e9d-fe13-483d-881e-8718057d9fb0.png)
 	![image](https://user-images.githubusercontent.com/53277342/161478033-7b5cae14-4a98-431a-ae49-102a621d3b46.png)
-	- Previous Result  
+	- Previous Result   
 	![image](https://user-images.githubusercontent.com/53277342/161478053-61fbdba3-1e69-431f-a076-12b8118b9147.png)
-	- Advanced Result  
+	- Advanced Result    
 	![image](https://user-images.githubusercontent.com/53277342/161478074-377615cd-cbb0-4e14-a351-3ec6eb7cd16a.png)
-	- Filled Lane Result
+	- Filled Lane Result  
 	![image](https://user-images.githubusercontent.com/53277342/161478092-1607d0be-d108-48af-b9af-9184f9e6aecd.png)
 
 ----
-3. Case: Lane Not Detected
+3. Case: Lane Not Detected  
 	![image](https://user-images.githubusercontent.com/53277342/161475568-8f6ccbd1-948e-4cde-912d-204c722342b7.png)
 	![image](https://user-images.githubusercontent.com/53277342/161475596-b56fbe92-bcb0-4884-a5f7-a1669f04e370.png)
-	- Previous Result
+	- Previous Result  
 	![image](https://user-images.githubusercontent.com/53277342/161475665-743187cc-65ce-4e6e-abf5-41bd032fb981.png)
-	- Advanced Result
+	- Advanced Result  
 	![image](https://user-images.githubusercontent.com/53277342/161475686-74b59f61-b204-40eb-a427-7090369a54d1.png)
-	- Filled Lane Result
+	- Filled Lane Result  
 	![image](https://user-images.githubusercontent.com/53277342/161475708-666e53de-823b-4cc9-803b-56b274dd514b.png)
 	
 ---
-4. Case: Other Lane Detected
+4. Case: Other Lane Detected  
 	![image](https://user-images.githubusercontent.com/53277342/161475135-e8ceacaf-4995-4f40-a002-4cbf655b5b3b.png)
 	![image](https://user-images.githubusercontent.com/53277342/161475242-0bffa975-8dd1-47c9-942b-71c47b2cb812.png)
-	- Previous Result
+	- Previous Result  
 	![image](https://user-images.githubusercontent.com/53277342/161475071-2e3b0968-6a1f-420a-b20f-bc8360240654.png)
-	- Advanced Result
+	- Advanced Result  
 	![image](https://user-images.githubusercontent.com/53277342/161475103-aa1b51d8-a1ca-4c45-b122-dcc0aac26f83.png)
-	- Lane Filled Result
+	- Lane Filled Result  
 	![image](https://user-images.githubusercontent.com/53277342/161475265-03ca5c4a-9f1e-49a9-9c3d-6fa97abe8445.png)
-
+---
