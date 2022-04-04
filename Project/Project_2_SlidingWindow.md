@@ -131,7 +131,7 @@ def warp_image(img):
 
 	```
 	1. Window Finding Cases
-		1. If: (Window Found),  
+		1. If Window Found,  
 			![image](https://user-images.githubusercontent.com/53277342/161481599-de03c851-a33f-465e-b224-90a72d95ea87.png)
 			- Save Current X Position and Calculate Difference Between Previous Data   
 
@@ -153,7 +153,7 @@ def warp_image(img):
 				total_right_found_flag = True
 			```
 
-		2. Else, If: (Window Not Found but Another Side Window Found),  
+		2. Else, If Window Not Found but Another Side Window Found,  
 			- Estimate X Position from Another Side X Position by using Fixed Lane Width  
 			![image](https://user-images.githubusercontent.com/53277342/161481814-a850ff18-b87e-45f4-8879-33860d5914c3.png)
 			```python
@@ -190,7 +190,7 @@ def warp_image(img):
 
 	2. Save Left, Right Window X Positions  
 		```python
-		        x_left_list.append(cur_left_x)
+		x_left_list.append(cur_left_x)
         x_right_list.append(cur_right_x)
 
         y_left_list.append((win_yl + win_yh) / 2)
@@ -220,10 +220,10 @@ def warp_image(img):
 			```
 		
 		2. Found Lane Cases
-			1. If: (Both Lane Correct),  
+			1. If Both Lane Correct,  
 				- Return
 				
-			2. Else, If: (Not One Lane Correct),  
+			2. Else, If Not One Lane Correct,  
 				- Estimate Lane from Another Correct Lane by using Fixed Lane Width  
 				
 				```python
@@ -234,7 +234,7 @@ def warp_image(img):
 					x_right_list = x_left_list[:] + np.full(len(x_left_list), LANE_WIDTH)
 
 				```
-			3. Else: (Not Both Lane Correct),
+			3. Else, Not Both Lane Correct,
 				- Estimate Lane with Own Previous Lane
 				```python
 				if (left_diff > MAX_AVG_GAP) and (right_diff > MAX_AVG_GAP):
@@ -420,7 +420,7 @@ border_warp_inverse_mat = cv2.getPerspectiveTransform(border_dst_pt, border_src_
 	![image](https://user-images.githubusercontent.com/53277342/161477805-e44e34a6-2b0a-4176-9893-3e5fec137498.png)
 
 ---
-2. Case: Lane Missing  
+2. Case: Lane Not Existing  
 	![image](https://user-images.githubusercontent.com/53277342/161478004-96430e9d-fe13-483d-881e-8718057d9fb0.png)
 	![image](https://user-images.githubusercontent.com/53277342/161478033-7b5cae14-4a98-431a-ae49-102a621d3b46.png)
 	- Previous Algorithm   
