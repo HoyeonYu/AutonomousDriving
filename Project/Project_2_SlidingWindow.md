@@ -251,6 +251,8 @@ def warp_image(img):
 ---
 
 ### 5. Get Velocity for Distance by using IMU Sensor
+![그림1](https://user-images.githubusercontent.com/53277342/161783361-56bf879b-9efc-45a8-a633-33201a4b2e79.gif)
+
 ```python
 # IMU Topic Callback for Checking Velocity of Car
 def imu_callback(data):
