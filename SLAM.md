@@ -85,20 +85,7 @@
 			$ catkin_make_isolated --install --use-ninja --install-space /opt/ros/melodic/
 			```
 
-4. Carographer 알고리즘
-	- 전체 알고리즘
-		1. Voxel Filter
-			- 라이다 포인트 Down Sampling
-		2. Pose Extrapolator
-			- Ceres Scan Matching 초기값 지정
-			- Real Correlative Scan Matching으로 대체 가능
-		3. Ceres Scan Matching
-			- 최신 Submap에 대해 현재 측정된 라이다 데이터들의 pose(x, y, theta) 구함
-		4. Motion Filter
-			- 일정 조건 미충족 라이다 데이터들 제거
-		5. Submap Update
-			- 위 과정 거친 라이다 데이터들로 Submap 갱신
-
+4. Cartographer 알고리즘
 	- Frontend 알고리즘
 		1. (Adaptive) Voxel Filter
 			- 사용 이유
@@ -110,13 +97,75 @@
 			- 방법
 				- 1개 Voxel Grid 내부 라이다 데이터들의 평균점 1개만 사용, 나머지 제거
 
-
-
-
-
-
-
-
+		2. Pose Extrapolator
+			- 방법
+				- IMU, odom 데이터 이용해 가장 최근 pose가 정해진 데이터로부터 다음 데이터 pose 추정
+					- IMU, odom 사용 불가 경우 Real Correlative Scan Matching 사용
+				- Translation, Rotation 정보 반환
+					- Ceres Scan Matcher의 초기값으로 사용
+		3. Ceres Scan Matching
+			- 방법
+				- 최근 Submap에 대한 라이다 데이터의 pose를 최적화 과정 통해 구함
+		4. Motion Filter
+			- 사용 이유
+				- Pose가 비슷한 데이터의 불필요한 연산량, 제거 목적
+			- 방법
+				- 최근 데이터의 pose와 가까우면서 일정 시간 이내의 데이터인 경우 제거
+		5. Submap Update
+			- Pose 정보 가지는 데이터들로 Submap 업데이트
+			- Submap은 Probabilty Grid로 제작, Grid는 장애물 존재 확률값 가짐
+			- Pose 기준으로 라이다 데이터들 각각 Submap 상에 위치
+				- Hit Grid
+					- 라이다 데이터와 가장 가까운 Grid
+				- Miss Grid
+					- Pose와 라이다 데이터를 잇는 직선이 지나는 Grid들
+				
+5. Carographer 파라미터 튜닝
+	- trajectory_builder.lua
+		- 기능
+			- Submap 생성 과정에서 사용되는 옵션 설정 파일
+			- trajectory_builder_2d(3d).lua 파일 참조
+		- 파라미터
+			- pure_localization_trimmer.max_submaps_to_keep
+				- 최근 몇 개의 Submap 저장할지 설정
+	- trajectory_builder_2d(3d).lua
+		- 기능
+			- 2D(3D) SLAM에서 사용하는 파라미터 설정 파일
+		- 파라미터
+			- use_imu_data
+				- 중력 방향 결정할 때 IMU 센서 사용할지 여부 설정
+				- 2D SLAM에서는 선택, 3D SLAM에서는 필수
+			- min_range (max_range)
+				- 사이 거리 값을 가지는 라이다 데이터만 SLAM에 사용
+			- min_x (max_z)
+				- 3D 라이다에서 수집된 Point Cloud를 2D SLAM에서 사용할 때 Z값 제한두어 포인트 변환
+			- missing_data_ray_length
+				- max_range보다 큰 값 가지는 라이다 데이터 저장
+			- voxel_filter_size
+				- Voxel Filter 크기 설정
+			- real_time_correlative_scan_matching
+				- 현재 Submap과 현재 들어온 라이다 데이터를 대상으로 matching 수행
+				- 현재 Pose 기준으로 일정 거리, 각도 내에 있는 비슷한 Scan 데이터 찾음
+				- linear_search_window
+					- Search 거리 범위 설정
+				- angular_search_window
+					- Search 각도 범위 설정
+			- ceres_scan_matching
+				- occupied_space_weight
+					- 각각 Scan 데이터의 신뢰도
+				- translation_weight
+					- Initial Pose의 Translation 신뢰도
+				- rotation_weight
+					- Initial Pose의 Rotation 신뢰도
+				- 신뢰도 높을수록 Scan Matching에 많이 반영됨
+			- motion_filter
+				- 세 기준 중 하나라도 만족하는 라이다 데이터를 Submap Update에 사용
+				- max_time_seconds
+					- 시간이 지나서 얻은 데이터만 사용
+				- max_distance_meters
+					- 특정 거리 이상의 데이터만 사용
+				- max_angle_radians
+					- 특정 각도 이상의 Heading 차이가 있는 데이터만 사용
 
 
 
