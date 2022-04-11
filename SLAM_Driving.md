@@ -39,7 +39,7 @@
 	$ rosservice call /write_state “{filename: "File Name.pbstream", include_unfinished_submaps: “true”}”
 	```
 
-4. Get Tracked Pose Bag File
+4. Get Tracked Pose Bag File  
 	![slam_localization](https://user-images.githubusercontent.com/53277342/162653905-153b844e-c2e2-476d-ab3b-0b10c7f213b1.gif)
 	
 	```
