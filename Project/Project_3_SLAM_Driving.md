@@ -50,7 +50,7 @@
 	$ rosbag record -O slam_tracked_pose.bag /tracked_poserosbag record -O slam_tracked_pose.bag /tracked_pose
 	```
 
-5. Path Planning: Get Way Point in Tracked Pose Bag File
+5. Get Way Point in Tracked Pose Bag File
 	![image](https://user-images.githubusercontent.com/53277342/162670973-01372e34-0201-435d-a296-052e100c45cc.png)
 	```
 	$ roslaunch bag2wp.launch
